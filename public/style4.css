@@ -1,0 +1,553 @@
+/* 1. RESET & BASE */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+/* 2. LAYOUT */
+html, body {
+    height: 100%;
+    margin: 0;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    background: linear-gradient(to top, #320c0c, #000000);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    margin: 0;
+}
+
+/* 3. NAVBAR */
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 40px;
+    background: white;
+}
+
+.logo { color: #3498db; font-weight: bold; }
+
+.nav-links { list-style: none; display: flex; align-items: center; }
+.nav-links li { margin-left: 20px; }
+.nav-links a { text-decoration: none; color: #333; font-size: 14px; }
+.register-btn { background: #3498db; color: white; padding: 6px 12px; border-radius: 4px; }
+
+/* 4. HERO */
+.hero {
+    height: auto;   
+    flex: 1;           
+    padding: 100px 20px; 
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    background: linear-gradient(to top, #320c0c, #000000);
+    color: white;
+}
+
+.hero h1 { font-size: 48px; margin-bottom: 10px; letter-spacing: 2px; }
+.hero p { font-size: 14px; margin-bottom: 20px; color: #ddd; }
+.btn { background: #3498db; padding: 10px 25px; color: white; text-decoration: none; border-radius: 4px; font-size: 14px; }
+.btn:hover { background: #2980b9; }
+
+.info-section {
+    padding: 40px 20px;
+    background: linear-gradient(to top, #140505, #1f0909);
+}
+
+.info-card {
+    max-width: 900px;
+    margin: 0 auto;
+    background: #ffffff;
+    color: #222;
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.info-card h2 {
+    margin-bottom: 16px;
+    color: #1f2937;
+}
+
+.info-card p {
+    color: #333;
+    line-height: 1.7;
+    margin-bottom: 16px;
+}
+
+.page-section {
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+/* 5. FOOTER - THIS FIXES THE GAP */
+footer {
+    flex-shrink: 0; /* Prevents the footer from squishing */
+    padding: 20px 40px;
+    background: #000000;
+    color: white;
+    width: 100%;
+}
+
+.footer-container { display: flex; justify-content: space-around; flex-wrap: wrap; }
+.footer-col { max-width: 250px; }
+.footer-col h3, .footer-col h4 { margin-bottom: 10px; color: #3498db; }
+.footer-col p { font-size: 14px; }
+.footer-col ul { list-style: none; }
+.footer-col ul li a { text-decoration: none; color: white; font-size: 14px; }
+.footer-col ul li a:hover { text-decoration: underline; }
+
+/* 6. LOGIN & REGISTER FORM */
+.container {
+    width: 360px;
+    margin: auto;
+    background: white;
+    padding: 35px;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    text-align: center;
+}
+.container input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; color: #222; background: #fff; }
+.container select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; color: #222; background: #fff; }
+.container button { width: 100%; padding: 10px; border: none; background: #3498db; color: white; border-radius: 4px; cursor: pointer; }
+.container input[type="file"] {
+    color: #222;
+    background: #fff;
+}
+.container input[type="file"]::file-selector-button {
+    margin-right: 10px;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    background: #3498db;
+    color: #fff;
+    cursor: pointer;
+}
+
+.content-wrapper {
+    flex: 1 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+}
+
+.admin-grid {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    gap: 20px;
+    max-width: 1200px;
+    width: 100%;
+}
+
+.admin-card {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.admin-link-card {
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.admin-link-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 14px rgba(0,0,0,0.15);
+}
+
+.admin-link-card.active {
+    border: 2px solid #3498db;
+}
+
+.admin-filters {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+
+.admin-filters input,
+.admin-filters select {
+    min-width: 220px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    color: #222;
+    background: #fff;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+th, td {
+    text-align: left;
+    padding: 12px;
+    border-bottom: 1px solid #ddd;
+}
+
+.status-pill {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    background: #e0e0e0;
+    color: #333;
+}
+
+.log-entry {
+    font-family: monospace;
+    font-size: 0.9rem;
+    border-left: 3px solid #3498db;
+    padding-left: 10px;
+    margin-bottom: 8px;
+    color: #333;
+    text-align: left;
+}
+
+.message {
+    min-height: 20px;
+    margin-top: 10px;
+    font-size: 14px;
+    color: #f0d5d5;
+}
+
+.message.success {
+    color: #1e8449;
+}
+
+.message.error {
+    color: #b03a2e;
+}
+
+.result-box {
+    width: min(760px, 90%);
+    margin-top: 20px;
+    text-align: left;
+}
+
+.result-box h2 {
+    margin-bottom: 14px;
+    color: #222;
+}
+
+.result-box h3 {
+    margin: 16px 0 8px;
+    color: #222;
+}
+
+.result-box ul {
+    padding-left: 20px;
+}
+
+.result-box p,
+.result-box strong,
+.result-box a {
+    color: #222;
+}
+
+.doc-item {
+    padding: 12px 0;
+    border-bottom: 1px solid #ddd;
+    color: #222;
+}
+
+.doc-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.doc-button {
+    display: inline-block;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 4px;
+    background: #3498db;
+    color: #fff !important;
+    text-decoration: none;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.doc-button.secondary {
+    background: #2c3e50;
+}
+
+.doc-button.danger {
+    background: #c0392b;
+}
+
+.doc-summary {
+    margin-top: 12px;
+    padding: 12px;
+    background: #f6f8fb;
+    border: 1px solid #d8dee9;
+    border-radius: 6px;
+    color: #222;
+}
+
+.doc-summary h3 {
+    margin-bottom: 8px;
+    color: #222;
+}
+
+.doc-summary p,
+.doc-summary li {
+    color: #222;
+}
+
+.info-text {
+    margin-bottom: 12px;
+    color: #333;
+}
+
+.selected-file {
+    color: #222 !important;
+    font-size: 13px;
+    margin: 6px 0 12px;
+}
+
+#documentList p {
+    color: #222;
+}
+
+#documentList a {
+    color: #0b63ce;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+#documentList a:hover {
+    text-decoration: underline;
+}
+
+#summaryOverview,
+#summaryStyleUsed,
+#summaryStatus,
+#summaryPoints,
+#summaryPoints li,
+#summaryRecommendations,
+#summaryRecommendations li,
+.result-box #summaryRecommendations li,
+.doc-summary ul,
+.doc-summary ul li {
+    color: #222;
+}
+
+.summary-status {
+    font-size: 13px;
+    color: #7f8c8d !important;
+    margin-bottom: 10px;
+}
+
+.field-label {
+    display: block;
+    text-align: left;
+    color: #222;
+    margin-top: 6px;
+    font-size: 14px;
+}
+
+@media (max-width: 768px) {
+    .admin-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .navbar {
+        flex-direction: column;
+        gap: 10px;
+    }
+}
+
+/* 1. RESET & BASE */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+/* 2. LAYOUT */
+html, body {
+    height: 100%;
+}
+
+body {
+    background: linear-gradient(to top, #320c0c, #000000);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* 3. NAVBAR */
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 40px;
+    background: white;
+}
+.logo { color: #3498db; font-weight: bold; font-size: 20px; }
+.nav-links { list-style: none; display: flex; align-items: center; }
+.nav-links li { margin-left: 25px; }
+.nav-links a { text-decoration: none; color: #333; font-size: 16px; font-weight: 500; }
+
+.active-pill {
+    background-color: #3498db;
+    color: white !important;
+    padding: 8px 20px;
+    border-radius: 50px;
+}
+
+/* 4. DASHBOARD GRID - MAXIMIZED */
+.hero {
+    flex: 1;
+    padding: 30px 20px;
+    color: white;
+    text-align: center;
+}
+
+.main-dashboard {
+    display: flex;
+    gap: 30px;
+    width: 98%;
+    max-width: 1700px; /* Wider to use all screen space */
+    margin: 20px auto;
+    align-items: stretch;
+}
+
+/* Left Side: 30% width */
+.upload-section {
+    flex: 1;
+    min-height: 600px;
+}
+
+/* Right Side: 70% width - Occupies much more space */
+#summaryBox {
+    flex: 2.5; 
+    text-align: left;
+    min-height: 600px;
+}
+
+/* 5. CONTAINERS */
+.container {
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    color: #333;
+}
+
+.section-title {
+    color: #222;
+    margin-bottom: 20px;
+    font-size: 24px;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 10px;
+}
+
+/* FORM ELEMENTS */
+input, select {
+    width: 100%;
+    padding: 14px;
+    margin-bottom: 20px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 15px;
+}
+
+.btn {
+    width: 100%;
+    background: #3498db;
+    padding: 16px;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+/* 6. SUMMARY CONTENT AREA */
+.summary-content {
+    margin-top: 20px;
+    max-height: 550px;
+    overflow-y: auto;
+    line-height: 1.6;
+}
+
+.summary-content h3 {
+    margin: 25px 0 10px;
+    color: #2c3e50;
+}
+
+.summary-content ul {
+    padding-left: 20px;
+}
+
+.summary-content li {
+    margin-bottom: 10px;
+}
+
+.style-tag {
+    display: inline-block;
+    background: #e1f5fe;
+    color: #0288d1;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+/* 7. FOOTER */
+footer {
+    padding: 25px;
+    background: #000;
+    color: white;
+}
+.footer-container { display: flex; justify-content: space-around; }
+
+/* Keywords Pills Styling */
+.keywords-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.keyword-pill {
+    display: inline-block;
+    background: #3498db;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    white-space: nowrap;
+    border: none;
+    cursor: default;
+    font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 1100px) {
+    .main-dashboard { flex-direction: column; align-items: center; }
+    .upload-section, #summaryBox { width: 100%; min-height: auto; }
+}

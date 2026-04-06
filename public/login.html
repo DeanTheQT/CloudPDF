@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login</title>
+<link rel="stylesheet" href="style2.css">
+</head>
+
+<body>
+<nav class="navbar">
+  <div class="logo"><a href="home.html">CloudPDF</a></div>
+  <ul>
+    <li><a href="index.html">Summarizer</a></li>
+    <li id="adminLi" style="display:none;"><a href="admin.html" style="color: #e74c3c; font-weight: bold;">Admin Panel</a></li>
+    
+    <li><a href="login.html" id="loginBtn">Login</a></li>
+    <li><a href="account.html" id="accountBtn" style="display:none;"></a></li>
+    <li><a href="history.html" id="historyLink" style="display:none;">History</a></li>
+    <li><a href="#" id="logout" style="display:none;">Logout</a></li>
+  </ul>
+</nav>
+<div class="container">
+<h2>Login</h2>
+
+<form id="loginForm">
+<input type="email" id="loginEmail" placeholder="Email" required>
+<div class="password-field">
+<input type="password" id="loginPass" placeholder="Password" required minlength="8" title="Password must be at least 8 characters long">
+<button type="button" class="toggle-password" data-target="loginPass" aria-label="Show password">Show</button>
+</div>
+<button type="submit">Login</button>
+</form>
+<p id="loginFormMessage" class="form-message" aria-live="polite"></p>
+<button type="button" id="forgotPasswordToggle" class="link-button">Forgot password?</button>
+
+<form id="forgotPasswordForm" class="otp-form" hidden>
+<input type="email" id="resetEmail" placeholder="Enter your account email" required>
+<button type="submit" id="forgotPasswordSubmitBtn">Send Reset OTP</button>
+</form>
+<p id="forgotPasswordMessage" class="form-message" aria-live="polite"></p>
+
+<form id="resetPasswordForm" class="otp-form" hidden>
+<input type="text" id="resetOtpCode" placeholder="Enter reset OTP" inputmode="numeric" maxlength="6" required>
+<div class="password-field">
+<input type="password" id="resetNewPass" placeholder="New Password" required minlength="8" title="Password must be at least 8 characters long">
+<button type="button" class="toggle-password" data-target="resetNewPass" aria-label="Show new password">Show</button>
+</div>
+<button type="submit" id="resetPasswordSubmitBtn">Reset Password</button>
+</form>
+<p id="resetPasswordMessage" class="form-message" aria-live="polite"></p>
+<p id="resetOtpTimer" class="form-message" aria-live="polite"></p>
+
+<p>No account?</p>
+<a href="Register.html">Register here</a>
+</div>
+
+<script src="script.js"></script>
+
+</body>
+</html>

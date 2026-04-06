@@ -1,0 +1,25 @@
+# Environment
+.env
+.env.*
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# App runtime data
+uploads/
+summaries/
+externalDB/
+
+# Secrets
+config/*.json
+!config/db.js
+!config/firestore.js
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home - CloudPDF</title>
+    <link rel="stylesheet" href="style3.css">
+</head>
+<body data-page="user-home">
+
+<nav class="navbar">
+  <div class="logo"><a href="home.html">CloudPDF</a></div>
+  <ul>
+    <li><a href="index.html">Summarizer</a></li>
+    <li id="adminLi" style="display:none;"><a href="admin.html" style="color: #e74c3c; font-weight: bold;">Admin Panel</a></li>
+    
+    <li><a href="login.html" id="loginBtn">Login</a></li>
+    <li id="notificationHost" style="display:none;"></li>
+    <li><a href="account.html" id="accountBtn" style="display:none;"></a></li>
+    <li><a href="history.html" id="historyLink" style="display:none;">History</a></li>
+    <li><a href="#" id="logout" style="display:none;">Logout</a></li>
+  </ul>
+</nav>
+
+<section class="hero">
+    <h1>Welcome, <span id="userDisplay"></span>!</h1>
+    <p>Upload your research paper below for AI-powered summarization.</p>
+    
+    <div class="main-dashboard">
+        <div class="container upload-section">
+            <h2 class="section-title">Select Thesis PDF</h2>
+            <form id="uploadForm" enctype="multipart/form-data">
+                <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Upload thesis PDF">
+                    <input type="file" id="pdfFile" name="paper" accept="application/pdf" required hidden>
+                    <p class="drop-zone-title">Drag and drop your thesis PDF here</p>
+                    <p class="drop-zone-copy">or click to browse your files</p>
+                </div>
+                <p class="selected-file" id="selectedFileName">No file selected</p>
+                <p class="preflight-warning" id="preflightWarning" aria-live="polite"></p>
+                
+                <label class="field-label">Summary Length</label>
+                <select id="summaryLength" name="summaryLength">
+                    <option value="short">Short</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="long">Long</option>
+                </select>
+
+                <label class="field-label" for="summaryStyle">Summary Style</label>
+                <select id="summaryStyle">
+                    <option value="short">Short</option>
+                    <option value="casual">Casual</option>
+                    <option value="fancy">Fancy</option>
+                    <option value="academic">Academic</option>
+                </select>
+
+                <label class="field-label" for="outputFormat">Output Format</label>
+                <select id="outputFormat">
+                    <option value="paragraph">Paragraph</option>
+                    <option value="bullet">Bullet Points</option>
+                    <option value="numbered">Numbered List</option>
+                </select>
+
+                <label class="field-label" for="focusArea">Focus Area</label>
+                <select id="focusArea">
+                    <option value="">None</option>
+                    <option value="methodology">Methodology</option>
+                    <option value="results">Results</option>
+                    <option value="discussion">Discussion</option>
+                    <option value="limitations">Limitations</option>
+                </select>
+
+                <label class="field-label">Extra Options</label>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" id="includeKeywords"> Include Keywords</label>
+                    <label><input type="checkbox" id="includeHighlights"> Include Highlights</label>
+                    <label><input type="checkbox" id="includeCitations"> APA Citations</label>
+                </div>
+                <button type="submit" class="btn">Upload & Summarize</button>
+            </form>
+
+            <p class="message" id="uploadMessage"></p>
+        </div>
+
+        <div class="container result-box" id="summaryBox">
+            <div class="summary-headline">
+                <div>
+                    <h2 class="section-title">Generated Summary</h2>
+                    <p id="summaryStyleUsed" class="style-tag">Waiting for input...</p>
+                </div>
+                <button type="button" id="copySummaryBtn" class="copy-btn">Copy Summary</button>
+            </div>
+            
+            <div class="summary-content">
+                <p id="summaryOverview" class="summary-paragraph">
+                    Your summarized research will appear here as a detailed paragraph once you upload your file.
+                </p>
+                <p id="summaryCopyStatus" class="copy-status" aria-live="polite"></p>
+
+                <div id="highlightsSection" hidden>
+                    <h3 class="sub-title">Highlights</h3>
+                    <ul id="summaryPoints"></ul>
+                </div>
+
+                <div id="citationsSection" hidden>
+                    <h3 class="sub-title">APA Citations</h3>
+                    <ul id="summaryCitations"></ul>
+                </div>
+
+                <div id="keywordsSection">
+                    <h3 class="sub-title">Keywords</h3>
+                    <div id="keywordsContainer" class="keywords-list">
+                        <ul id="summaryKeywords"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer>
+    <div class="footer-container">
+        <div class="footer-col">
+            <h3>CloudPDF</h3>
+            <p>AI-Powered Research Organization.</p>
+        </div>
+        <div class="footer-col">
+            <h4>Contact</h4>
+            <p>Email: support@CloudPDF.local</p>
+        </div>
+    </div>
+</footer>
+<script src="script.js"></script>
+</body>
+</html>

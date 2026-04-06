@@ -1,0 +1,2 @@
+# This project currently has no Python runtime dependencies.
+# Backend dependencies are managed in package.json via npm.

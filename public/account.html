@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Account - CloudPDF</title>
+    <link rel="stylesheet" href="account.css">
+    <style>
+    </style>
+</head>
+<body data-page="account">
+
+<nav class="navbar">
+    <div class="logo"><a href="home.html">CloudPDF</a></div>
+    <ul>
+        <li><a href="index.html">Summarizer</a></li>
+        <li id="adminLi" style="display:none;"><a href="admin.html" style="color:#e74c3c; font-weight:bold;">Admin Panel</a></li>
+        <li><a href="login.html" id="loginBtn">Login</a></li>
+        <li id="notificationHost" style="display:none;"></li>
+        <li><a href="account.html" id="accountBtn" style="display:none;"></a></li>
+        <li><a href="history.html" id="historyLink" style="display:none;">History</a></li>
+        <li><a href="#" id="logout" style="display:none;">Logout</a></li>
+    </ul>
+</nav>
+
+<main class="account-container">
+    <h1>My Account</h1>
+
+    <div class="account-info">
+        <p><strong>Email:</strong> <span id="userDisplay">Loading...</span></p>
+        <p><strong>Status:</strong> <span id="statusDisplay">User</span></p>
+    </div>
+
+    <section class="account-stats" aria-label="Dashboard stats">
+        <article class="stat-card">
+            <p class="stat-label">Saved Summaries</p>
+            <strong id="statsUploadCount" class="stat-value">0</strong>
+        </article>
+        <article class="stat-card">
+            <p class="stat-label">Messages Sent</p>
+            <strong id="statsMessageCount" class="stat-value">0</strong>
+        </article>
+        <article class="stat-card stat-card-wide">
+            <p class="stat-label">Latest Upload</p>
+            <strong id="statsLatestUpload" class="stat-value">No uploads yet</strong>
+            <span id="statsLatestUploadDate" class="stat-meta"></span>
+        </article>
+        <article class="stat-card">
+            <p class="stat-label">Member Since</p>
+            <strong id="statsMemberSince" class="stat-value">-</strong>
+        </article>
+    </section>
+
+    <div class="change-password">
+        <h2>Security</h2>
+        <form id="changePasswordForm" class="form-inline">
+            <div class="form-group">
+                <label>Current Password</label>
+                <div class="password-field">
+                    <input type="password" id="currentPass" required autocomplete="current-password">
+                    <button type="button" class="toggle-password" data-target="currentPass" aria-label="Show current password">Show</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>New Password</label>
+                <div class="password-field">
+                    <input type="password" id="newPass" required autocomplete="new-password" minlength="8" title="Password must be at least 8 characters long">
+                    <button type="button" class="toggle-password" data-target="newPass" aria-label="Show new password">Show</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Confirm New Password</label>
+                <div class="password-field">
+                    <input type="password" id="confirmNewPass" required autocomplete="new-password" minlength="8" title="Password must be at least 8 characters long">
+                    <button type="button" class="toggle-password" data-target="confirmNewPass" aria-label="Show confirm password">Show</button>
+                </div>
+            </div>
+            <div class="form-buttons">
+                <button type="submit" class="register-btn">Update Password</button>
+                <button type="button" id="logoutBtn" class="register-btn">Logout</button>
+                <button type="button" id="deleteAccountBtn" class="danger-btn">Delete Account</button>
+            </div>
+            <p id="changePasswordStatus" class="status-message" aria-live="polite"></p>
+        </form>
+    </div>
+
+    <div class="contact-admin">
+        <h2>Contact Admin</h2>
+        <p class="section-copy">Send a message if you need help with your account, uploads, or summaries.</p>
+        <form id="contactAdminForm">
+            <div class="form-group">
+                <label for="messageSubject">Subject</label>
+                <input type="text" id="messageSubject" maxlength="120" placeholder="What do you need help with?" required>
+            </div>
+            <div class="form-group">
+                <label for="messageBody">Message</label>
+                <textarea id="messageBody" rows="5" maxlength="2000" placeholder="Write your message to the admin here..." required></textarea>
+            </div>
+            <div class="form-buttons">
+                <button type="submit" class="register-btn">Send Message</button>
+            </div>
+            <p id="contactAdminStatus" class="status-message" aria-live="polite"></p>
+        </form>
+    </div>
+
+    <div class="contact-admin">
+        <h2>Admin Replies</h2>
+        <p class="section-copy">Messages from the admin team will appear here.</p>
+        <div id="userInboxList" class="user-inbox-list">
+            <p class="empty-inbox">Loading your inbox...</p>
+        </div>
+    </div>
+
+</main>
+<script src="script.js"></script>
+</body>
+</html>

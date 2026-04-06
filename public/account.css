@@ -1,0 +1,332 @@
+/* NAVBAR */
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 40px;
+    background: white;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+
+.logo a { 
+    color: #3498db; 
+    font-weight: bold; 
+    font-size: 22px; 
+    text-decoration: none; 
+}
+
+.navbar ul {
+    list-style: none;
+    display: flex;
+    align-items: center;
+}
+
+.navbar li { margin-left: 25px; }
+
+.navbar a {
+    text-decoration: none;
+    color: #333;
+    font-size: 15px;
+    font-weight: 500;
+}
+
+/* ACCOUNT PAGE */
+.account-container {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 0 20px;
+}
+
+.account-container h1 {
+    font-size: 28px;
+    margin-bottom: 20px;
+}
+
+.account-info {
+    background: #f9f9f9;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.account-info p {
+    font-size: 16px;
+    margin: 10px 0;
+}
+
+.account-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.stat-card {
+    background: linear-gradient(145deg, #ffffff, #eef6ff);
+    border: 1px solid #dbe9f6;
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 10px 25px rgba(15, 76, 129, 0.08);
+}
+
+.stat-card-wide {
+    grid-column: span 2;
+}
+
+.stat-label {
+    color: #5b6773;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 10px;
+}
+
+.stat-value {
+    display: block;
+    color: #153b63;
+    font-size: 24px;
+    line-height: 1.2;
+}
+
+.stat-meta {
+    display: block;
+    margin-top: 6px;
+    color: #6b7280;
+    font-size: 13px;
+}
+
+.account-actions,
+.change-password,
+.contact-admin {
+    display: flex;
+    justify-content: flex-start;
+    gap: 15px; 
+    flex-wrap: wrap; 
+}
+
+.change-password button,
+.contact-admin button,
+#logoutBtn {
+    margin-top: 0; 
+}
+
+/* CHANGE PASSWORD FORM */
+.change-password,
+.contact-admin {
+    background: #f9f9f9;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.change-password h2,
+.contact-admin h2 {
+    font-size: 20px;
+    margin-bottom: 15px;
+}
+
+.change-password .form-group,
+.contact-admin .form-group {
+    margin-bottom: 15px;
+    width: 100%;
+}
+
+.change-password label,
+.contact-admin label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.change-password input,
+.contact-admin input,
+.contact-admin textarea {
+    width: 100%;
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+}
+
+.password-field {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-field input {
+    margin: 0;
+    height: 42px;
+    padding-right: 76px;
+}
+
+.toggle-password {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    margin-top: 0 !important;
+    border: 1px solid #cbd5e1;
+    background: #e8f1fb;
+    color: #2c3e50;
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.toggle-password:hover {
+    background: #d9eafe;
+}
+
+.contact-admin textarea {
+    resize: vertical;
+    min-height: 120px;
+    font-family: inherit;
+}
+
+.user-inbox-list {
+    display: grid;
+    gap: 14px;
+    width: 100%;
+}
+
+.inbox-card {
+    border: 1px solid #d8e3ef;
+    border-radius: 12px;
+    padding: 16px;
+    background: #fff;
+}
+
+.inbox-card.unread {
+    border-color: #5aa3ff;
+    box-shadow: 0 0 0 2px rgba(90, 163, 255, 0.12);
+}
+
+.inbox-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    color: #66717c;
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+
+.inbox-card h3 {
+    margin-bottom: 8px;
+    color: #153b63;
+}
+
+.inbox-card p {
+    color: #2c3e50;
+    white-space: pre-wrap;
+    line-height: 1.6;
+}
+
+.empty-inbox {
+    color: #6b7280;
+}
+
+.section-copy {
+    width: 100%;
+    margin-bottom: 10px;
+    color: #555;
+}
+
+.form-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.form-buttons button,
+.contact-admin .form-buttons button {
+    margin-top: 10px;
+}
+
+.danger-btn {
+    background: #c0392b;
+    color: #fff;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.danger-btn:hover {
+    opacity: 0.92;
+}
+
+.status-message {
+    width: 100%;
+    margin-top: 10px;
+    font-size: 14px;
+    color: #2c3e50;
+    min-height: 20px;
+}
+
+.status-message.error {
+    color: #c0392b;
+}
+
+.status-message.success {
+    color: #1f8f4e;
+}
+
+@media (max-width: 900px) {
+    .navbar {
+        padding: 14px 18px;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .navbar ul {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px 14px;
+        padding: 0;
+    }
+
+    .navbar li {
+        margin-left: 0;
+    }
+
+    .account-container {
+        margin: 28px auto;
+        padding: 0 14px 24px;
+    }
+
+    .account-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .stat-card-wide {
+        grid-column: span 2;
+    }
+}
+
+@media (max-width: 560px) {
+    .account-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .stat-card-wide {
+        grid-column: span 1;
+    }
+
+    .change-password,
+    .contact-admin {
+        padding: 16px;
+    }
+
+    .form-buttons button {
+        width: 100%;
+    }
+
+    .toggle-password {
+        padding: 6px 9px;
+        font-size: 11px;
+    }
+}

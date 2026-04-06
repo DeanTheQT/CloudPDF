@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Register</title>
+<link rel="stylesheet" href="style2.css">
+</head>
+<body>
+<nav class="navbar">
+  <div class="logo"><a href="home.html">CloudPDF</a></div>
+  <ul>
+    <li><a href="index.html">Summarizer</a></li>
+    <li id="adminLi" style="display:none;"><a href="admin.html" style="color: #e74c3c; font-weight: bold;">Admin Panel</a></li>
+    
+    <li><a href="login.html" id="loginBtn">Login</a></li>
+    <li><a href="account.html" id="accountBtn" style="display:none;"></a></li>
+    <li><a href="history.html" id="historyLink" style="display:none;">History</a></li>
+    <li><a href="#" id="logout" style="display:none;">Logout</a></li>
+  </ul>
+</nav>
+
+<div class="container">
+<h2>Create Account</h2>
+
+<form id="registerForm">
+<input type="email" id="regEmail" placeholder="Email Address" required>
+<div class="password-field">
+<input type="password" id="regPass" placeholder="Password" required minlength="8" title="Password must be at least 8 characters long">
+<button type="button" class="toggle-password" data-target="regPass" aria-label="Show password">Show</button>
+</div>
+<div class="password-field">
+<input type="password" id="confirmRegPass" placeholder="Confirm Password" required minlength="8" title="Password must be at least 8 characters long">
+<button type="button" class="toggle-password" data-target="confirmRegPass" aria-label="Show password">Show</button>
+</div>
+<button type="submit" id="registerSubmitBtn">Register</button>
+</form>
+<p id="registerFormMessage" class="form-message" aria-live="polite"></p>
+
+<form id="otpForm" class="otp-form" hidden>
+<input type="text" id="otpCode" placeholder="Enter OTP" inputmode="numeric" maxlength="6" required>
+<button type="submit" id="otpSubmitBtn">Verify OTP</button>
+<button type="button" id="resendOtpBtn">Resend OTP</button>
+</form>
+<p id="otpFormMessage" class="form-message" aria-live="polite"></p>
+<p id="otpTimer" class="form-message" aria-live="polite"></p>
+
+<p>Already have an account?</p>
+<a href="login.html">Login here</a>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard - CloudPDF</title>
+
+<link rel="stylesheet" href="admin.css">
+</head>
+
+<body>
+
+<!-- ================= NAVBAR ================= -->
+<nav class="navbar">
+  <div class="logo"><a href="home.html">CloudPDF</a></div>
+  <ul>
+    <li><a href="index.html">Summarizer</a></li>
+    <li><a href="login.html" id="loginBtn">Login</a></li>
+    <li><a href="account.html" id="accountBtn" style="display:none;"></a></li>
+    <li><a href="history.html" id="historyLink" style="display:none;">History</a></li>
+    <li><a href="#" id="logout" style="display:none;">Logout</a></li>
+  </ul>
+</nav>
+
+<!-- ================= CONTENT ================= -->
+<div class="content-wrapper">
+<div class="admin-grid">
+
+<!-- ========= SIDEBAR ========= -->
+<aside>
+
+<div class="admin-card quick-nav-card">
+<h3>Quick Navigation</h3>
+<div class="quick-nav-links">
+<a href="#adminUsersSection">Users</a>
+<a href="#adminUploadsSection">Uploads</a>
+<a href="#adminMessagesSection">Messages</a>
+<a href="#adminAnalyticsSection">Analytics</a>
+<a href="#adminLogsSection">Logs</a>
+<a href="#adminArchivedSection">Archived</a>
+</div>
+</div>
+
+<div class="admin-card">
+<h3>System Stats</h3>
+<p>Total Users: <strong id="statsUsers">0</strong></p>
+<p>Papers Processed: <strong id="statsDocs">0</strong></p>
+</div>
+
+<div class="admin-card">
+<h3>Uploaded Files</h3>
+<p>Total Files: <strong id="statsDocsAside">0</strong></p>
+</div>
+
+<div class="admin-card">
+<h3>System Logs</h3>
+<p>Total Logs: <strong id="statsLogs">0</strong></p>
+</div>
+
+<div class="admin-card">
+<h3>User Messages</h3>
+<p>Total Messages: <strong id="statsMessages">0</strong></p>
+</div>
+
+<div class="admin-card">
+<h3>Archived Items</h3>
+<p>Users: <strong id="statsArchivedUsers">0</strong></p>
+<p>Uploads: <strong id="statsArchivedUploads">0</strong></p>
+<p>Messages: <strong id="statsArchivedMessages">0</strong></p>
+</div>
+
+</aside>
+
+<!-- ========= MAIN ========= -->
+<main>
+
+<!-- USERS -->
+<section class="admin-card" id="adminUsersSection">
+<h2>User Management</h2>
+<input type="text" id="userSearchInput" placeholder="Search user...">
+<select id="userRoleFilter">
+<option value="">All Roles</option>
+<option value="admin">Admin</option>
+<option value="user">User</option>
+</select>
+
+<table>
+<thead>
+<tr>
+<th>Email</th>
+<th>Role</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="userTableBody"></tbody>
+</table>
+<div class="list-controls">
+<span id="userListInfo" class="list-info">Showing 0 users</span>
+<button type="button" id="loadMoreUsersBtn" class="list-more-btn">Show More</button>
+</div>
+</section>
+
+<!-- UPLOADS -->
+<section class="admin-card" id="adminUploadsSection">
+<h2>Uploaded Thesis Files</h2>
+
+<!-- New Uploads Search Bar -->
+<input type="text" id="uploadSearchInput" placeholder="Search uploads by name or keyword">
+
+<div id="adminDocumentList">
+<p>Select a user to view uploads.</p>
+</div>
+<div class="list-controls">
+<span id="uploadListInfo" class="list-info">No uploads loaded</span>
+<button type="button" id="loadMoreUploadsBtn" class="list-more-btn">Show More</button>
+</div>
+</section>
+
+<!-- LOGS -->
+<section class="admin-card" id="adminMessagesSection">
+<h2>User Messages</h2>
+<input type="text" id="messageSearchInput" placeholder="Search messages">
+<div id="adminMessageList">
+<p>No user messages yet.</p>
+</div>
+<div class="list-controls">
+<span id="messageListInfo" class="list-info">Showing 0 messages</span>
+<button type="button" id="loadMoreMessagesBtn" class="list-more-btn">Show More</button>
+</div>
+</section>
+
+<section class="admin-card" id="adminAnalyticsSection">
+<h2>Admin Analytics</h2>
+<div id="analyticsOverview">
+<p>Loading analytics...</p>
+</div>
+<div id="analyticsKeywords"></div>
+</section>
+
+<section class="admin-card" id="adminLogsSection">
+<h2>System Activity Logs</h2>
+<input type="text" id="logSearchInput" placeholder="Search logs">
+<select id="logActionFilter">
+<option value="">All Log Types</option>
+<option value="user_registered">Registrations</option>
+<option value="account_deleted">Account Deletions</option>
+</select>
+<div id="logContainer"></div>
+<div class="list-controls">
+<span id="logListInfo" class="list-info">Showing 0 logs</span>
+<button type="button" id="loadMoreLogsBtn" class="list-more-btn">Show More</button>
+</div>
+</section>
+
+<section class="admin-card" id="adminArchivedSection">
+<h2>Archived Items</h2>
+<div id="archivedItemsContainer">
+<p>Loading archived items...</p>
+</div>
+</section>
+
+</main>
+</div>
+</div>
+
+<script src="adminscript.js"></script>
+</body>
+</html>

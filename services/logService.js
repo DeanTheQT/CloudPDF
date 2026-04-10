@@ -1,6 +1,20 @@
 const Log = require("../models/Log");
 
-const ALLOWED_ACTIONS = new Set(["user_registered", "account_deleted"]);
+const ALLOWED_ACTIONS = new Set([
+  "user_registered",
+  "account_deleted",
+  "admin_user_archived",
+  "admin_user_restored",
+  "admin_user_deleted_permanently",
+  "admin_role_toggled",
+  "admin_upload_archived",
+  "admin_upload_restored",
+  "admin_upload_deleted_permanently",
+  "admin_message_archived",
+  "admin_message_restored",
+  "admin_message_deleted_permanently",
+  "admin_message_replied"
+]);
 const LOG_BATCH_SIZE = 200;
 const LOG_FLUSH_INTERVAL_MS = 2000;
 const MAX_QUEUE_SIZE = 5000;
@@ -78,6 +92,7 @@ function logEvent(req, action, meta = {}, level = "info") {
     return;
   }
 
+  const actorRole = req.session?.user?.isAdmin ? "admin" : "user";
   enqueueLog({
     level,
     action,
@@ -86,7 +101,10 @@ function logEvent(req, action, meta = {}, level = "info") {
     statusCode: meta.statusCode,
     user: req.session?.user?.id,
     username: req.session?.user?.email || req.session?.user?.username,
-    meta
+    meta: {
+      actorRole,
+      ...meta
+    }
   });
 }
 

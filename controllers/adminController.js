@@ -6,16 +6,38 @@ const Message = require("../models/Message");
 const fs = require("fs");
 const path = require("path");
 const { logEvent } = require("../services/logService");
-const { getOrSetCache, deleteCacheByPrefix, deleteCache } = require("../services/cacheService");
+const { getOrSetCache, deleteCacheByPrefix } = require("../services/cacheService");
+
+function getPaginationParams(req, defaults = {}) {
+  const page = Math.max(Number(req.query.page) || defaults.page || 1, 1);
+  const limit = Math.min(Math.max(Number(req.query.limit) || defaults.limit || 25, 1), defaults.maxLimit || 100);
+  const skip = (page - 1) * limit;
+  return { page, limit, skip };
+}
+
+const ADMIN_LOG_ACTIONS = [
+  "admin_user_archived",
+  "admin_user_restored",
+  "admin_user_deleted_permanently",
+  "admin_role_toggled",
+  "admin_upload_archived",
+  "admin_upload_restored",
+  "admin_upload_deleted_permanently",
+  "admin_message_archived",
+  "admin_message_restored",
+  "admin_message_deleted_permanently",
+  "admin_message_replied"
+];
 
 // ======================
 // GET ALL USERS
 // ======================
 exports.getUsers = async (req, res) => {
   try {
-    const limit = Math.min(Number(req.query.limit) || 100, 200);
+    const { page, limit, skip } = getPaginationParams(req, { page: 1, limit: 25, maxLimit: 100 });
     const search = (req.query.search || "").trim().toLowerCase();
-    const users = await getOrSetCache(`admin:users:limit:${limit}:search:${search}`, 30 * 1000, async () => {
+    const role = (req.query.role || "").trim().toLowerCase();
+    const payload = await getOrSetCache(`admin:users:page:${page}:limit:${limit}:search:${search}:role:${role}`, 30 * 1000, async () => {
       const filter = { archived: { $ne: true } };
       if (search) {
         filter.$or = [
@@ -23,13 +45,28 @@ exports.getUsers = async (req, res) => {
           { username: { $regex: search, $options: "i" } }
         ];
       }
-      return User.find(filter)
-        .select("-password -otpCode -otpExpiresAt")
-        .sort({ _id: -1 })
-        .limit(limit)
-        .lean();
+      if (role === "admin") filter.isAdmin = true;
+      if (role === "user") filter.isAdmin = false;
+
+      const [items, total] = await Promise.all([
+        User.find(filter)
+          .select("-password -otpCode -otpExpiresAt")
+          .sort({ _id: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+        User.countDocuments(filter)
+      ]);
+
+      return { items, total };
     });
-    res.json(users);
+    res.json({
+      items: payload.items,
+      total: payload.total,
+      page,
+      limit,
+      hasMore: skip + payload.items.length < payload.total
+    });
   } catch (err) {
     console.error("[ERROR] getUsers:", err);
     res.status(500).json({ error: "Failed to fetch users" });
@@ -60,12 +97,13 @@ exports.deleteUser = async (req, res) => {
     deleteCacheByPrefix(`admin:uploads:user:${userId}:`);
     deleteCacheByPrefix("admin:messages:");
     deleteCacheByPrefix("uploads:user:");
-    deleteCache("admin:logs");
+    deleteCacheByPrefix("admin:logs:");
 
     logEvent(req, "account_deleted", {
       deletedUserId: userId,
       deletedByAdmin: true
     });
+    logEvent(req, "admin_user_archived", { targetUserId: userId });
 
     res.json({ success: true });
   } catch (err) {
@@ -84,6 +122,12 @@ exports.toggleAdmin = async (req, res) => {
 
     user.isAdmin = !user.isAdmin;
     await user.save();
+    deleteCacheByPrefix("admin:users:");
+    deleteCacheByPrefix("admin:logs:");
+    logEvent(req, "admin_role_toggled", {
+      targetUserId: user._id.toString(),
+      isAdmin: user.isAdmin
+    });
 
     res.json({ success: true, isAdmin: user.isAdmin });
   } catch (err) {
@@ -151,6 +195,11 @@ exports.deleteUpload = async (req, res) => {
     await upload.save();
     deleteCacheByPrefix("admin:uploads:");
     deleteCacheByPrefix("uploads:user:");
+    deleteCacheByPrefix("admin:logs:");
+    logEvent(req, "admin_upload_archived", {
+      uploadId: upload._id.toString(),
+      ownerUserId: upload.user?.toString?.() || String(upload.user)
+    });
 
     res.json({ success: true });
   } catch (err) {
@@ -164,29 +213,45 @@ exports.deleteUpload = async (req, res) => {
 // ======================
 exports.getLogs = async (req, res) => {
   try {
-    const { logs, total } = await getOrSetCache("admin:logs", 15 * 1000, async () => {
+    const { page, limit, skip } = getPaginationParams(req, { page: 1, limit: 50, maxLimit: 100 });
+    const search = (req.query.search || "").trim();
+    const action = (req.query.action || "").trim();
+    const cacheKey = `admin:logs:page:${page}:limit:${limit}:search:${search.toLowerCase()}:action:${action}`;
+    const payload = await getOrSetCache(cacheKey, 15 * 1000, async () => {
+      const filter = {
+        "meta.actorRole": "admin",
+        action: { $in: ADMIN_LOG_ACTIONS }
+      };
+      if (action) {
+        filter.action = action;
+      }
+      if (search) {
+        filter.$or = [
+          { action: { $regex: search, $options: "i" } },
+          { username: { $regex: search, $options: "i" } }
+        ];
+      }
+
       const [logs, total] = await Promise.all([
-        Log.find()
+        Log.find(filter)
           .sort({ createdAt: -1 })
-          .limit(200)
+          .skip(skip)
+          .limit(limit)
           .populate("user", "email username")
           .lean(),
-        Log.estimatedDocumentCount()
+        Log.countDocuments(filter)
       ]);
+
       return { logs, total };
-    }).then((payload) => {
-      const search = (req.query.search || "").trim().toLowerCase();
-      if (!search) return payload;
-      return {
-        ...payload,
-        logs: payload.logs.filter((log) =>
-          (log.action || "").toLowerCase().includes(search) ||
-          (log.username || log.user?.email || log.user?.username || "").toLowerCase().includes(search)
-        )
-      };
     });
 
-    res.json({ logs, total });
+    res.json({
+      logs: payload.logs,
+      total: payload.total,
+      page,
+      limit,
+      hasMore: skip + payload.logs.length < payload.total
+    });
   } catch (err) {
     console.error("[ERROR] getLogs:", err);
     res.status(500).json({ error: "Failed to fetch logs" });
@@ -195,13 +260,12 @@ exports.getLogs = async (req, res) => {
 
 exports.getArchivedOverview = async (req, res) => {
   try {
-    const [users, uploads, messages] = await Promise.all([
+    const [users, messages] = await Promise.all([
       User.find({ archived: true }).select("email username archivedAt").sort({ archivedAt: -1 }).limit(50).lean(),
-      Upload.find({ archived: true }).select("originalname archivedAt user").populate("user", "email username").sort({ archivedAt: -1 }).limit(50).lean(),
       Message.find({ archived: true }).select("subject username archivedAt user").populate("user", "email username").sort({ archivedAt: -1 }).limit(50).lean()
     ]);
 
-    res.json({ users, uploads, messages });
+    res.json({ users, messages });
   } catch (err) {
     console.error("[ERROR] getArchivedOverview:", err);
     res.status(500).json({ error: "Failed to fetch archived items" });
@@ -227,6 +291,8 @@ exports.restoreUser = async (req, res) => {
     deleteCacheByPrefix("admin:messages:");
     deleteCacheByPrefix("uploads:user:");
     deleteCacheByPrefix(`account:stats:${user._id}`);
+    deleteCacheByPrefix("admin:logs:");
+    logEvent(req, "admin_user_restored", { targetUserId: user._id.toString() });
 
     res.json({ success: true });
   } catch (err) {
@@ -247,11 +313,78 @@ exports.restoreUpload = async (req, res) => {
     deleteCacheByPrefix("admin:uploads:");
     deleteCacheByPrefix("uploads:user:");
     deleteCacheByPrefix(`account:stats:${upload.user}`);
+    deleteCacheByPrefix("admin:logs:");
+    logEvent(req, "admin_upload_restored", {
+      uploadId: upload._id.toString(),
+      ownerUserId: upload.user?.toString?.() || String(upload.user)
+    });
 
     res.json({ success: true });
   } catch (err) {
     console.error("[ERROR] restoreUpload:", err);
     res.status(500).json({ error: "Failed to restore upload" });
+  }
+};
+
+exports.permanentlyDeleteArchivedUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user || !user.archived) return res.status(404).json({ error: "Archived user not found" });
+
+    const uploads = await Upload.find({ user: user._id }).select("filename");
+    for (const upload of uploads) {
+      const filePath = path.join(__dirname, "../uploads", upload.filename);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
+    await Promise.all([
+      Upload.deleteMany({ user: user._id }),
+      Message.deleteMany({ user: user._id }),
+      User.deleteOne({ _id: user._id })
+    ]);
+
+    deleteCacheByPrefix("admin:users:");
+    deleteCacheByPrefix(`admin:uploads:user:${user._id}:`);
+    deleteCacheByPrefix("admin:messages:");
+    deleteCacheByPrefix("uploads:user:");
+    deleteCacheByPrefix(`account:stats:${user._id}`);
+    deleteCacheByPrefix("admin:logs:");
+    logEvent(req, "admin_user_deleted_permanently", { targetUserId: user._id.toString() });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("[ERROR] permanentlyDeleteArchivedUser:", err);
+    res.status(500).json({ error: "Failed to permanently delete user" });
+  }
+};
+
+exports.permanentlyDeleteArchivedUpload = async (req, res) => {
+  try {
+    const upload = await Upload.findById(req.params.id);
+    if (!upload) return res.status(404).json({ error: "Upload not found" });
+
+    const filePath = path.join(__dirname, "../uploads", upload.filename);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
+    await Upload.deleteOne({ _id: upload._id });
+
+    deleteCacheByPrefix("admin:uploads:");
+    deleteCacheByPrefix("uploads:user:");
+    deleteCacheByPrefix(`account:stats:${upload.user}`);
+    deleteCacheByPrefix("admin:logs:");
+    logEvent(req, "admin_upload_deleted_permanently", {
+      uploadId: upload._id.toString(),
+      ownerUserId: upload.user?.toString?.() || String(upload.user)
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("[ERROR] permanentlyDeleteArchivedUpload:", err);
+    res.status(500).json({ error: "Failed to permanently delete upload" });
   }
 };
 

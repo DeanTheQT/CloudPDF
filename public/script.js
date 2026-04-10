@@ -151,11 +151,13 @@ async function uploadWithProgress(url, formData, { onProgress, onProcessing } = 
                 return;
             }
 
-            reject(new Error(
-                typeof payload === "string"
-                    ? payload
-                    : JSON.stringify(payload)
-            ));
+            const errorMessage = typeof payload === "string"
+                ? payload
+                : payload?.message || payload?.error || JSON.stringify(payload);
+            const error = new Error(errorMessage);
+            error.payload = payload;
+            error.status = xhr.status;
+            reject(error);
         });
 
         xhr.addEventListener("error", () => {
@@ -1236,9 +1238,10 @@ uploadForm?.addEventListener("submit", async (e) => {
 
   } catch (err) {
     console.error("[ERROR] PDF upload failed:", err);
-    const duplicatePayload = err?.message?.startsWith("{") ? (() => {
+    const duplicatePayload = err?.payload || (err?.message?.startsWith("{") ? (() => {
       try { return JSON.parse(err.message); } catch (_) { return null; }
-    })() : null;
+    })() : null);
+    const errorMessage = err?.payload?.message || err?.payload?.error || err.message || "Server error. Please try again.";
 
     if (duplicatePayload?.duplicate && duplicatePayload.existingUpload) {
       renderSummaryResult(duplicatePayload.existingUpload, options);
@@ -1246,8 +1249,8 @@ uploadForm?.addEventListener("submit", async (e) => {
       return;
     }
 
-    uploadMessage.textContent = err.message || "Server error. Please try again.";
-    summaryOverview.textContent = "Failed to generate summary.";
+    uploadMessage.textContent = errorMessage;
+    summaryOverview.textContent = errorMessage;
   }
 });
 
@@ -1282,7 +1285,9 @@ async function updateNavbar() {
         const res = await nativeFetch("/auth/session");
         const data = await res.json();
 
+        const summarizerNavItem = document.getElementById("summarizerNavItem");
         const loginBtn = document.getElementById("loginBtn");
+        const signupBtn = document.getElementById("signupBtn");
         const accountBtn = document.getElementById("accountBtn");
         const logoutBtn = document.getElementById("logout");
         const adminLi = document.getElementById("adminLi");
@@ -1290,25 +1295,29 @@ async function updateNavbar() {
         const notificationHost = document.getElementById("notificationHost");
 
         if (data.loggedIn) {
+            if (summarizerNavItem) summarizerNavItem.style.display = "inline-block";
             if (loginBtn) loginBtn.style.display = "none";
+            if (signupBtn) signupBtn.style.display = "none";
             if (accountBtn) {
-                accountBtn.textContent = data.user.email || data.user.username;
+                accountBtn.textContent = "Profile";
                 accountBtn.style.display = "inline-block";
             }
             if (logoutBtn) logoutBtn.style.display = "inline-block";
             if (historyLink) historyLink.style.display = "inline-block";
-            if (notificationHost) notificationHost.style.display = "inline-block";
-            
             if (adminLi) {
                 adminLi.style.display = data.user.isAdmin ? "inline-block" : "none";
             }
-            await updateNotificationCenter();
+            if (notificationHost) {
+                notificationHost.style.display = "none";
+            }
         } else {
-            // If logged out and trying to view history, redirect to login
-            if (document.body.dataset.page === "user-history") {
+            // If logged out and trying to view gated pages, redirect to login
+            if (["user-history", "summarizer"].includes(document.body.dataset.page)) {
                 window.location.href = "login.html";
             }
+            if (summarizerNavItem) summarizerNavItem.style.display = "none";
             if (loginBtn) loginBtn.style.display = "inline-block";
+            if (signupBtn) signupBtn.style.display = "inline-block";
             if (accountBtn) accountBtn.style.display = "none";
             if (logoutBtn) logoutBtn.style.display = "none";
             if (historyLink) historyLink.style.display = "none";
@@ -1470,7 +1479,10 @@ async function loadHistory() {
                 <article class="archived-history-card">
                     <h3>${item.originalname}</h3>
                     <p>Archived ${item.archivedAt ? new Date(item.archivedAt).toLocaleString() : "recently"}.</p>
-                    <button type="button" class="restore-history-btn" data-upload-id="${item._id}">Restore Summary</button>
+                    <div class="archived-history-actions">
+                        <button type="button" class="restore-history-btn" data-upload-id="${item._id}">Restore Summary</button>
+                        <button type="button" class="delete-history-btn" data-archived-upload-id="${item._id}">Delete Permanently</button>
+                    </div>
                 </article>
             `).join("");
 
@@ -1604,6 +1616,27 @@ window.restoreHistoryItem = async (uploadId) => {
     }
 };
 
+window.deleteArchivedHistoryItem = async (uploadId) => {
+    const confirmed = await showConfirmDialog({
+        title: "Delete archived summary?",
+        message: "This will permanently remove the archived summary and cannot be undone.",
+        confirmLabel: "Delete Permanently"
+    });
+    if (!confirmed) return;
+
+    try {
+        const res = await csrfFetch(`/upload/${uploadId}/permanent`, { method: "DELETE" });
+        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(data.message || "Could not permanently delete summary.");
+        }
+        await window.refreshHistoryView?.();
+        loadAccountStats();
+    } catch (err) {
+        console.error(err);
+    }
+};
+
 function openHistoryModal(item) {
     const overlay = document.getElementById("historyModalOverlay");
     if (!overlay) return;
@@ -1666,6 +1699,15 @@ document.addEventListener("DOMContentLoaded", () => {
             const uploadId = restoreBtn.dataset.uploadId;
             if (uploadId) {
                 window.restoreHistoryItem(uploadId);
+            }
+        }
+
+        const archivedDeleteBtn = event.target.closest(".delete-history-btn");
+        if (archivedDeleteBtn) {
+            event.preventDefault();
+            const uploadId = archivedDeleteBtn.dataset.archivedUploadId;
+            if (uploadId) {
+                window.deleteArchivedHistoryItem(uploadId);
             }
         }
     }, true);

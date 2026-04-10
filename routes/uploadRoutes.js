@@ -21,6 +21,7 @@ router.post('/upload', uploadLimiter, upload.single('pdf'), uploadController.par
 router.get('/upload/status/:id', uploadController.getUploadStatus);
 router.get('/uploads/archived', uploadController.getArchivedUploads);
 router.post('/upload/:id/restore', uploadController.restoreUpload);
+router.delete('/upload/:id/permanent', uploadController.permanentlyDeleteArchivedUpload);
 
 // Delete PDF & summary
 router.delete('/upload/:filename', uploadController.deletePDF);

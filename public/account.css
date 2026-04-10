@@ -30,6 +30,13 @@
     font-weight: 500;
 }
 
+.register-btn {
+    background: #3498db;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 4px;
+}
+
 /* ACCOUNT PAGE */
 .account-container {
     max-width: 800px;

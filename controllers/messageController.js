@@ -1,5 +1,6 @@
 const Message = require("../models/Message");
 const { getOrSetCache, deleteCacheByPrefix } = require("../services/cacheService");
+const { logEvent } = require("../services/logService");
 
 exports.createMessage = async (req, res) => {
   try {
@@ -38,22 +39,41 @@ exports.createMessage = async (req, res) => {
 
 exports.getMessages = async (req, res) => {
   try {
-    const search = (req.query.search || "").trim().toLowerCase();
-    const messages = await getOrSetCache(`admin:messages:${search}`, 20 * 1000, async () => {
-      return Message.find({ archived: { $ne: true }, senderRole: "user" })
-        .sort({ createdAt: -1 })
-        .populate("user", "email username")
-        .lean();
-    }).then((items) => {
-      if (!search) return items;
-      return items.filter((item) =>
-        (item.username || item.user?.email || item.user?.username || "").toLowerCase().includes(search) ||
-        (item.subject || "").toLowerCase().includes(search) ||
-        (item.message || "").toLowerCase().includes(search)
-      );
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+    const skip = (page - 1) * limit;
+    const search = (req.query.search || "").trim();
+    const cacheKey = `admin:messages:page:${page}:limit:${limit}:search:${search.toLowerCase()}`;
+    const payload = await getOrSetCache(cacheKey, 20 * 1000, async () => {
+      const filter = { archived: { $ne: true }, senderRole: "user" };
+      if (search) {
+        filter.$or = [
+          { username: { $regex: search, $options: "i" } },
+          { subject: { $regex: search, $options: "i" } },
+          { message: { $regex: search, $options: "i" } }
+        ];
+      }
+
+      const [items, total] = await Promise.all([
+        Message.find(filter)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .populate("user", "email username")
+          .lean(),
+        Message.countDocuments(filter)
+      ]);
+
+      return { items, total };
     });
 
-    res.json(messages);
+    res.json({
+      items: payload.items,
+      total: payload.total,
+      page,
+      limit,
+      hasMore: skip + payload.items.length < payload.total
+    });
   } catch (err) {
     console.error("[ERROR] getMessages:", err);
     res.status(500).json({ message: "Failed to load messages" });
@@ -87,6 +107,12 @@ exports.replyToMessage = async (req, res) => {
     });
 
     deleteCacheByPrefix(`user:inbox:${parent.user._id}`);
+    deleteCacheByPrefix("admin:messages:");
+    deleteCacheByPrefix("admin:logs:");
+    logEvent(req, "admin_message_replied", {
+      targetMessageId: parent._id.toString(),
+      targetUserId: parent.user._id.toString()
+    });
 
     res.status(201).json({
       success: true,
@@ -195,6 +221,11 @@ exports.deleteMessage = async (req, res) => {
     await deleted.save();
     deleteCacheByPrefix("admin:messages:");
     deleteCacheByPrefix(`user:inbox:${deleted.user}`);
+    deleteCacheByPrefix("admin:logs:");
+    logEvent(req, "admin_message_archived", {
+      targetMessageId: deleted._id.toString(),
+      targetUserId: deleted.user?.toString?.() || String(deleted.user)
+    });
 
     res.json({ success: true });
   } catch (err) {
@@ -217,10 +248,41 @@ exports.restoreMessage = async (req, res) => {
     deleteCacheByPrefix("admin:messages:");
     deleteCacheByPrefix(`account:stats:${message.user}`);
     deleteCacheByPrefix(`user:inbox:${message.user}`);
+    deleteCacheByPrefix("admin:logs:");
+    logEvent(req, "admin_message_restored", {
+      targetMessageId: message._id.toString(),
+      targetUserId: message.user?.toString?.() || String(message.user)
+    });
 
     res.json({ success: true });
   } catch (err) {
     console.error("[ERROR] restoreMessage:", err);
     res.status(500).json({ message: "Failed to restore message" });
+  }
+};
+
+exports.permanentlyDeleteArchivedMessage = async (req, res) => {
+  try {
+    const message = await Message.findById(req.params.id);
+
+    if (!message || !message.archived) {
+      return res.status(404).json({ message: "Archived message not found" });
+    }
+
+    const userId = message.user;
+    await Message.deleteOne({ _id: message._id });
+    deleteCacheByPrefix("admin:messages:");
+    deleteCacheByPrefix(`account:stats:${userId}`);
+    deleteCacheByPrefix(`user:inbox:${userId}`);
+    deleteCacheByPrefix("admin:logs:");
+    logEvent(req, "admin_message_deleted_permanently", {
+      targetMessageId: message._id.toString(),
+      targetUserId: userId?.toString?.() || String(userId)
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("[ERROR] permanentlyDeleteArchivedMessage:", err);
+    res.status(500).json({ message: "Failed to permanently delete message" });
   }
 };

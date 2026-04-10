@@ -25,7 +25,7 @@ const toObjectId = (id) => {
 };
 
 // =========================
-// REGISTER (Fixed session saving)
+// REGISTER 
 // =========================
 exports.register = async (req, res) => {
     try {

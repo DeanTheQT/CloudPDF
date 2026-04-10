@@ -226,9 +226,13 @@ async function updateNavbar() {
             return;
         }
 
+        document.getElementById("summarizerNavItem").style.display = "inline-block";
         document.getElementById("loginBtn").style.display = "none";
-        document.getElementById("accountBtn").textContent = data.user.email || data.user.username;
+        document.getElementById("signupBtn").style.display = "none";
+        document.getElementById("historyLink").style.display = "inline-block";
+        document.getElementById("accountBtn").textContent = "Profile";
         document.getElementById("accountBtn").style.display = "inline-block";
+        document.getElementById("adminLi").style.display = "inline-block";
         document.getElementById("logout").style.display = "inline-block";
     } catch (err) {
         console.error(err);
@@ -250,29 +254,34 @@ document.getElementById("logout")?.addEventListener("click", async (e) => {
 ============================= */
 let allUsers = [];
 let adminMessages = [];
+let currentLogs = [];
 let userFetchLimit = 25;
 let uploadFetchLimit = 20;
 let messageFetchLimit = 20;
 let logFetchLimit = 50;
 let selectedUserId = null;
-let allLogs = [];
-let archivedPayload = { users: [], uploads: [], messages: [] };
+let archivedPayload = { users: [], messages: [] };
+let userPage = 1;
+let messagePage = 1;
+let logPage = 1;
+let hasMoreUsers = false;
+let hasMoreMessages = false;
+let hasMoreLogs = false;
 
-async function loadUsers() {
+async function loadUsers({ append = false } = {}) {
     try {
         const search = document.getElementById("userSearchInput")?.value.trim() || "";
         const role = document.getElementById("userRoleFilter")?.value || "";
-        const res = await nativeFetch(`/admin/users?limit=${userFetchLimit}&search=${encodeURIComponent(search)}`);
+        const res = await nativeFetch(`/admin/users?page=${userPage}&limit=${userFetchLimit}&search=${encodeURIComponent(search)}&role=${encodeURIComponent(role)}`);
         if (!res.ok) throw new Error("Failed to load users");
 
-        allUsers = await res.json();
-        const filteredUsers = role
-            ? allUsers.filter((user) => (role === "admin" ? user.isAdmin : !user.isAdmin))
-            : allUsers;
-        renderUsers(filteredUsers);
-        document.getElementById("statsUsers").textContent = filteredUsers.length;
-        document.getElementById("userListInfo").textContent = `Showing ${filteredUsers.length} users`;
-        document.getElementById("loadMoreUsersBtn").disabled = allUsers.length < userFetchLimit;
+        const data = await res.json();
+        allUsers = append ? [...allUsers, ...(data.items || [])] : (data.items || []);
+        hasMoreUsers = Boolean(data.hasMore);
+        renderUsers(allUsers);
+        document.getElementById("statsUsers").textContent = data.total ?? allUsers.length;
+        document.getElementById("userListInfo").textContent = `Showing ${allUsers.length} of ${data.total ?? allUsers.length} users`;
+        document.getElementById("loadMoreUsersBtn").disabled = !hasMoreUsers;
     } catch (err) {
         console.error(err);
         document.getElementById("statsUsers").textContent = "0";
@@ -308,7 +317,6 @@ async function loadAnalytics() {
         `;
 
         document.getElementById("statsArchivedUsers").textContent = totals.totalArchivedUsers ?? 0;
-        document.getElementById("statsArchivedUploads").textContent = totals.totalArchivedUploads ?? 0;
         document.getElementById("statsArchivedMessages").textContent = totals.totalArchivedMessages ?? 0;
     } catch (err) {
         console.error(err);
@@ -329,19 +337,10 @@ function renderArchivedItems() {
                 <div class="archived-card">
                     <strong>${item.email || item.username}</strong>
                     <p>Archived: ${item.archivedAt ? new Date(item.archivedAt).toLocaleString() : "Unknown"}</p>
-                    <button onclick="restoreArchivedUser('${item._id}')">Restore User</button>
-                </div>
-            `
-        },
-        {
-            label: "Uploads",
-            items: archivedPayload.uploads || [],
-            render: (item) => `
-                <div class="archived-card">
-                    <strong>${item.originalname || "Untitled upload"}</strong>
-                    <p>User: ${item.user?.email || item.user?.username || "Unknown"}</p>
-                    <p>Archived: ${item.archivedAt ? new Date(item.archivedAt).toLocaleString() : "Unknown"}</p>
-                    <button onclick="restoreArchivedUpload('${item._id}')">Restore Upload</button>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+                        <button onclick="restoreArchivedUser('${item._id}')">Restore User</button>
+                        <button onclick="permanentlyDeleteArchivedUser('${item._id}')">Delete Permanently</button>
+                    </div>
                 </div>
             `
         },
@@ -353,7 +352,10 @@ function renderArchivedItems() {
                     <strong>${item.subject || "Untitled message"}</strong>
                     <p>User: ${item.username || item.user?.email || item.user?.username || "Unknown"}</p>
                     <p>Archived: ${item.archivedAt ? new Date(item.archivedAt).toLocaleString() : "Unknown"}</p>
-                    <button onclick="restoreArchivedMessage('${item._id}')">Restore Message</button>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+                        <button onclick="restoreArchivedMessage('${item._id}')">Restore Message</button>
+                        <button onclick="permanentlyDeleteArchivedMessage('${item._id}')">Delete Permanently</button>
+                    </div>
                 </div>
             `
         }
@@ -432,18 +434,12 @@ async function toggleAdmin(id) {
    SEARCH USERS
 ============================= */
 document.getElementById("userSearchInput")?.addEventListener("input", (e) => {
-    const value = e.target.value.toLowerCase().trim();
-
-    if (!value) {
-        loadUsers();
-        return;
-    }
-
-    const filtered = allUsers.filter((u) => (u.email || u.username || "").toLowerCase().includes(value));
-    renderUsers(filtered);
+    userPage = 1;
+    loadUsers();
 });
 
 document.getElementById("userRoleFilter")?.addEventListener("change", () => {
+    userPage = 1;
     loadUsers();
 });
 
@@ -480,7 +476,7 @@ async function loadUploads(userId) {
                 <p>Uploaded by: ${u.user?.email || u.user?.username || "unknown"}</p>
                 <p><strong>Summary:</strong> <pre style="white-space: pre-wrap; background:#f5f5f5; padding:8px;">${u.summary || "No summary available"}</pre></p>
                 <p><strong>Keywords:</strong> ${u.keywords?.join(", ") || "None"}</p>
-                <button onclick="deleteUpload('${u._id}')">Archive</button>
+                <button onclick="deleteUploadPermanently('${u._id}')">Delete Permanently</button>
             `;
             container.appendChild(card);
         });
@@ -495,21 +491,27 @@ async function loadUploads(userId) {
     }
 }
 
-async function deleteUpload(id) {
+window.deleteUploadPermanently = async (id) => {
     const confirmed = await showConfirmDialog({
-        title: "Archive upload?",
-        message: "This will archive the upload and remove it from active views.",
-        confirmLabel: "Archive Upload"
+        title: "Delete upload permanently?",
+        message: "This will permanently remove the upload and cannot be undone.",
+        confirmLabel: "Delete Permanently"
     });
     if (!confirmed) return;
 
-    await csrfFetch(`/admin/uploads/${id}`, { method: "DELETE" });
-    if (selectedUserId) {
-        loadUploads(selectedUserId);
-    } else {
-        document.getElementById("adminDocumentList").innerHTML = "<p>Upload deleted. Select the user again to refresh the list.</p>";
+    try {
+        const res = await csrfFetch(`/admin/uploads/${id}/permanent`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Permanent delete failed");
+        if (selectedUserId) {
+            loadUploads(selectedUserId);
+        }
+        loadAnalytics();
+        loadLogs();
+    } catch (err) {
+        console.error(err);
+        showToast("Could not permanently delete the upload.", "error");
     }
-}
+};
 
 /* =============================
    LOGS
@@ -521,17 +523,21 @@ async function loadLogs() {
     try {
         const search = document.getElementById("logSearchInput")?.value.trim() || "";
         const action = document.getElementById("logActionFilter")?.value || "";
-        const res = await nativeFetch(`/admin/logs${search ? `?search=${encodeURIComponent(search)}` : ""}`);
+        const query = new URLSearchParams({
+            page: String(logPage),
+            limit: String(logFetchLimit)
+        });
+        if (search) query.set("search", search);
+        if (action) query.set("action", action);
+        const res = await nativeFetch(`/admin/logs?${query.toString()}`);
         if (!res.ok) throw new Error("Logs unavailable");
 
         const data = await res.json();
-        const logs = Array.isArray(data) ? data : data.logs || [];
-        allLogs = action ? logs.filter((log) => log.action === action) : logs;
+        currentLogs = logPage > 1 ? [...currentLogs, ...(data.logs || [])] : (data.logs || []);
+        hasMoreLogs = Boolean(data.hasMore);
         container.innerHTML = "";
 
-        const limitedLogs = allLogs.slice(0, logFetchLimit);
-
-        limitedLogs.forEach((log) => {
+        currentLogs.forEach((log) => {
             const p = document.createElement("p");
             const actor = log.username || log.user?.email || log.user?.username || "System";
             const status = log.statusCode ? ` [${log.statusCode}]` : "";
@@ -540,9 +546,9 @@ async function loadLogs() {
             container.appendChild(p);
         });
 
-        document.getElementById("statsLogs").textContent = allLogs.length;
-        document.getElementById("logListInfo").textContent = `Showing ${limitedLogs.length} of ${allLogs.length} logs`;
-        document.getElementById("loadMoreLogsBtn").disabled = limitedLogs.length >= allLogs.length;
+        document.getElementById("statsLogs").textContent = data.total ?? currentLogs.length;
+        document.getElementById("logListInfo").textContent = `Showing ${currentLogs.length} of ${data.total ?? currentLogs.length} logs`;
+        document.getElementById("loadMoreLogsBtn").disabled = !hasMoreLogs;
     } catch (err) {
         console.error(err);
         container.innerHTML = "<p>System logs are unavailable right now.</p>";
@@ -584,7 +590,7 @@ function renderMessages(messages) {
     });
 }
 
-async function loadMessages() {
+async function loadMessages({ append = false } = {}) {
     const container = document.getElementById("adminMessageList");
     if (!container) return;
 
@@ -592,14 +598,21 @@ async function loadMessages() {
 
     try {
         const search = document.getElementById("messageSearchInput")?.value.trim() || "";
-        const res = await nativeFetch(`/admin/messages${search ? `?search=${encodeURIComponent(search)}` : ""}`);
+        const query = new URLSearchParams({
+            page: String(messagePage),
+            limit: String(messageFetchLimit)
+        });
+        if (search) query.set("search", search);
+        const res = await nativeFetch(`/admin/messages?${query.toString()}`);
         if (!res.ok) throw new Error("Failed to load messages");
 
-        adminMessages = await res.json();
-        document.getElementById("statsMessages").textContent = adminMessages.length;
-        renderMessages(adminMessages.slice(0, messageFetchLimit));
-        document.getElementById("messageListInfo").textContent = `Showing ${Math.min(adminMessages.length, messageFetchLimit)} of ${adminMessages.length} messages`;
-        document.getElementById("loadMoreMessagesBtn").disabled = messageFetchLimit >= adminMessages.length;
+        const data = await res.json();
+        adminMessages = append ? [...adminMessages, ...(data.items || [])] : (data.items || []);
+        hasMoreMessages = Boolean(data.hasMore);
+        document.getElementById("statsMessages").textContent = data.total ?? adminMessages.length;
+        renderMessages(adminMessages);
+        document.getElementById("messageListInfo").textContent = `Showing ${adminMessages.length} of ${data.total ?? adminMessages.length} messages`;
+        document.getElementById("loadMoreMessagesBtn").disabled = !hasMoreMessages;
     } catch (err) {
         console.error(err);
         container.innerHTML = "<p>Unable to load user messages.</p>";
@@ -620,10 +633,8 @@ window.deleteMessage = async (id) => {
         if (!res.ok) throw new Error("Delete failed");
 
         adminMessages = adminMessages.filter((message) => message._id !== id);
-        document.getElementById("statsMessages").textContent = adminMessages.length;
-        renderMessages(adminMessages.slice(0, messageFetchLimit));
-        document.getElementById("messageListInfo").textContent = `Showing ${Math.min(adminMessages.length, messageFetchLimit)} of ${adminMessages.length} messages`;
-        document.getElementById("loadMoreMessagesBtn").disabled = messageFetchLimit >= adminMessages.length;
+        renderMessages(adminMessages);
+        document.getElementById("messageListInfo").textContent = `Showing ${adminMessages.length} messages`;
     } catch (err) {
         console.error(err);
         showToast("Could not archive the message.", "error");
@@ -664,6 +675,61 @@ window.restoreArchivedMessage = async (id) => {
     }
 };
 
+window.permanentlyDeleteArchivedUser = async (id) => {
+    const confirmed = await showConfirmDialog({
+        title: "Delete archived user?",
+        message: "This will permanently remove the archived user and all of their archived data.",
+        confirmLabel: "Delete Permanently"
+    });
+    if (!confirmed) return;
+
+    try {
+        const res = await csrfFetch(`/admin/users/${id}/permanent`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Permanent delete failed");
+        await Promise.all([loadUsers(), loadArchivedItems(), loadAnalytics()]);
+    } catch (err) {
+        console.error(err);
+        showToast("Could not permanently delete the user.", "error");
+    }
+};
+
+window.permanentlyDeleteArchivedUpload = async (id) => {
+    const confirmed = await showConfirmDialog({
+        title: "Delete archived upload?",
+        message: "This will permanently remove the archived upload and cannot be undone.",
+        confirmLabel: "Delete Permanently"
+    });
+    if (!confirmed) return;
+
+    try {
+        const res = await csrfFetch(`/admin/uploads/${id}/permanent`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Permanent delete failed");
+        await Promise.all([loadArchivedItems(), loadAnalytics()]);
+        if (selectedUserId) loadUploads(selectedUserId);
+    } catch (err) {
+        console.error(err);
+        showToast("Could not permanently delete the upload.", "error");
+    }
+};
+
+window.permanentlyDeleteArchivedMessage = async (id) => {
+    const confirmed = await showConfirmDialog({
+        title: "Delete archived message?",
+        message: "This will permanently remove the archived message and cannot be undone.",
+        confirmLabel: "Delete Permanently"
+    });
+    if (!confirmed) return;
+
+    try {
+        const res = await csrfFetch(`/admin/messages/${id}/permanent`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Permanent delete failed");
+        await Promise.all([loadMessages(), loadArchivedItems(), loadAnalytics()]);
+    } catch (err) {
+        console.error(err);
+        showToast("Could not permanently delete the message.", "error");
+    }
+};
+
 window.sendReply = async (id) => {
     const input = document.getElementById(`replyMessage-${id}`);
     const message = input?.value.trim() || "";
@@ -700,8 +766,8 @@ document.addEventListener("DOMContentLoaded", () => {
     loadArchivedItems();
 
     document.getElementById("loadMoreUsersBtn")?.addEventListener("click", () => {
-        userFetchLimit += 25;
-        loadUsers();
+        userPage += 1;
+        loadUsers({ append: true });
     });
 
     document.getElementById("loadMoreUploadsBtn")?.addEventListener("click", () => {
@@ -711,14 +777,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.getElementById("loadMoreMessagesBtn")?.addEventListener("click", () => {
-        messageFetchLimit += 20;
-        renderMessages(adminMessages.slice(0, messageFetchLimit));
-        document.getElementById("messageListInfo").textContent = `Showing ${Math.min(adminMessages.length, messageFetchLimit)} of ${adminMessages.length} messages`;
-        document.getElementById("loadMoreMessagesBtn").disabled = messageFetchLimit >= adminMessages.length;
+        messagePage += 1;
+        loadMessages({ append: true });
     });
 
     document.getElementById("loadMoreLogsBtn")?.addEventListener("click", () => {
-        logFetchLimit += 50;
+        logPage += 1;
         loadLogs();
     });
 
@@ -727,14 +791,17 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.getElementById("messageSearchInput")?.addEventListener("input", () => {
+        messagePage = 1;
         loadMessages();
     });
 
     document.getElementById("logSearchInput")?.addEventListener("input", () => {
+        logPage = 1;
         loadLogs();
     });
 
     document.getElementById("logActionFilter")?.addEventListener("change", () => {
+        logPage = 1;
         loadLogs();
     });
 });

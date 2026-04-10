@@ -1,8 +1,10 @@
 const fs = require("fs");
 const path = require("path");
+const pdfParse = require("pdf-parse");
 const Upload = require("../models/Upload");
 const { getOrSetCache, deleteCacheByPrefix } = require("../services/cacheService");
 const { hashValue, kickUploadProcessor } = require("../services/uploadQueueService");
+const { validateThesisText } = require("../services/geminiService");
 
 const fsPromises = fs.promises;
 const uploadsDir = path.join(__dirname, "../uploads");
@@ -114,15 +116,54 @@ exports.parsePDF = async (req, res) => {
       });
     }
 
+    const pdfData = await pdfParse(fileBuffer);
+    const cleanText = (pdfData.text || "").replace(/\s+/g, " ").trim();
+    const limitedText = cleanText.slice(0, 12000);
+
+    if (!limitedText) {
+      await removeFileIfExists(filePath);
+      return res.status(400).json({ message: "The PDF content could not be read." });
+    }
+
+    const sourceHash = hashValue(limitedText);
+    const existingSourceMatch = await Upload.findOne({
+      user: userId,
+      sourceHash,
+      optionSignature,
+      processingStatus: "completed",
+      archived: { $ne: true }
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (existingSourceMatch) {
+      await removeFileIfExists(filePath);
+      return res.status(409).json({
+        duplicate: true,
+        message: "This thesis was already summarized with the same options.",
+        existingUpload: buildUploadPayload(existingSourceMatch)
+      });
+    }
+
+    const thesisCheck = await validateThesisText(limitedText);
+    if (!thesisCheck?.isThesis) {
+      await removeFileIfExists(filePath);
+      return res.status(400).json({
+        message: thesisCheck?.reason || "This PDF is not a valid thesis document."
+      });
+    }
+
     const queuedUpload = await Upload.create({
       user: userId,
       filename,
       originalname,
       fileHash,
+      sourceHash,
       optionSignature,
       summaryOptions: options,
       processingStatus: "queued",
-      archived: false
+      archived: false,
+      thesisValidatedAt: new Date()
     });
 
     deleteCacheByPrefix(`uploads:user:${userId}:`);
@@ -258,6 +299,33 @@ exports.restoreUpload = async (req, res) => {
   } catch (err) {
     console.error("[ERROR] restoreUpload:", err);
     res.status(500).json({ message: "Failed to restore summary" });
+  }
+};
+
+exports.permanentlyDeleteArchivedUpload = async (req, res) => {
+  try {
+    if (!req.session?.user) return res.status(401).json({ message: "Unauthorized" });
+
+    const upload = await Upload.findOne({
+      _id: req.params.id,
+      user: req.session.user.id,
+      archived: true
+    });
+
+    if (!upload) {
+      return res.status(404).json({ message: "Archived summary not found" });
+    }
+
+    await removeFileIfExists(path.join(uploadsDir, upload.filename));
+    await Upload.deleteOne({ _id: upload._id });
+
+    deleteCacheByPrefix(`uploads:user:${req.session.user.id}:`);
+    deleteCacheByPrefix(`account:stats:${req.session.user.id}`);
+
+    res.json({ success: true, message: "Archived summary deleted permanently." });
+  } catch (err) {
+    console.error("[ERROR] permanentlyDeleteArchivedUpload:", err);
+    res.status(500).json({ message: "Failed to permanently delete summary" });
   }
 };
 

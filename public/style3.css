@@ -46,6 +46,13 @@ body {
     font-weight: 500;
 }
 
+.register-btn {
+    background: #3498db;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 4px;
+}
+
 /* 3. DASHBOARD LAYOUT */
 .hero {
     flex: 1;

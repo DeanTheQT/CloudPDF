@@ -14,10 +14,12 @@
 <nav class="navbar">
   <div class="logo"><a href="home.html">CloudPDF</a></div>
   <ul>
-    <li><a href="index.html">Summarizer</a></li>
-    <li><a href="login.html" id="loginBtn">Login</a></li>
-    <li><a href="account.html" id="accountBtn" style="display:none;"></a></li>
+    <li id="summarizerNavItem" style="display:none;"><a href="index.html">Summarizer</a></li>
+    <li id="adminLi" style="display:none;"><a href="admin.html" style="color: #e74c3c; font-weight: bold;">Admin Panel</a></li>
+    <li><a href="login.html" id="loginBtn">Sign In</a></li>
+    <li><a href="Register.html" id="signupBtn" class="register-btn">Sign Up</a></li>
     <li><a href="history.html" id="historyLink" style="display:none;">History</a></li>
+    <li><a href="account.html" id="accountBtn" style="display:none;">Profile</a></li>
     <li><a href="#" id="logout" style="display:none;">Logout</a></li>
   </ul>
 </nav>
@@ -65,7 +67,6 @@
 <div class="admin-card">
 <h3>Archived Items</h3>
 <p>Users: <strong id="statsArchivedUsers">0</strong></p>
-<p>Uploads: <strong id="statsArchivedUploads">0</strong></p>
 <p>Messages: <strong id="statsArchivedMessages">0</strong></p>
 </div>
 
@@ -138,12 +139,21 @@
 </section>
 
 <section class="admin-card" id="adminLogsSection">
-<h2>System Activity Logs</h2>
+<h2>Admin Activity Logs</h2>
 <input type="text" id="logSearchInput" placeholder="Search logs">
 <select id="logActionFilter">
-<option value="">All Log Types</option>
-<option value="user_registered">Registrations</option>
-<option value="account_deleted">Account Deletions</option>
+<option value="">All Admin Actions</option>
+<option value="admin_user_archived">User Archived</option>
+<option value="admin_user_restored">User Restored</option>
+<option value="admin_user_deleted_permanently">User Deleted Permanently</option>
+<option value="admin_role_toggled">Admin Role Changed</option>
+<option value="admin_upload_archived">Upload Archived</option>
+<option value="admin_upload_restored">Upload Restored</option>
+<option value="admin_upload_deleted_permanently">Upload Deleted Permanently</option>
+<option value="admin_message_archived">Message Archived</option>
+<option value="admin_message_restored">Message Restored</option>
+<option value="admin_message_deleted_permanently">Message Deleted Permanently</option>
+<option value="admin_message_replied">Reply Sent</option>
 </select>
 <div id="logContainer"></div>
 <div class="list-controls">

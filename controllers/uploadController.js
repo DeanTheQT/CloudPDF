@@ -4,7 +4,12 @@ const pdfParse = require("pdf-parse");
 const Upload = require("../models/Upload");
 const { getOrSetCache, deleteCacheByPrefix } = require("../services/cacheService");
 const { hashValue, kickUploadProcessor } = require("../services/uploadQueueService");
-const { validateThesisText } = require("../services/geminiService");
+const {
+  compareTheses,
+  findResearchGaps,
+  prepareDefense,
+  validateThesisText
+} = require("../services/geminiService");
 
 const fsPromises = fs.promises;
 const uploadsDir = path.join(__dirname, "../uploads");
@@ -26,6 +31,8 @@ function normalizeOptions(body = {}) {
     style: body.style || "academic",
     format: body.format || "paragraph",
     focusArea: body.focusArea || "",
+    includeBreakdown: body.includeBreakdown !== false && body.includeBreakdown !== "false",
+    breakdownFormat: body.breakdownFormat || "cards",
     includeKeywords: body.includeKeywords === true || body.includeKeywords === "true",
     includeHighlights: body.includeHighlights === true || body.includeHighlights === "true",
     includeCitations: body.includeCitations === true || body.includeCitations === "true"
@@ -39,10 +46,60 @@ function buildUploadPayload(upload) {
     keywords: upload.keywords || [],
     highlights: upload.highlights || [],
     citations: upload.citations || [],
+    thesisBreakdown: upload.thesisBreakdown || null,
+    sourceExcerpt: upload.sourceExcerpt || "",
+    summaryOptions: upload.summaryOptions || null,
     originalname: upload.originalname || "",
     processingStatus: upload.processingStatus,
     processingError: upload.processingError || null
   };
+}
+
+function buildProcessingSignatureInput(options = {}) {
+  return {
+    length: options.length || "medium",
+    style: options.style || "academic",
+    format: options.format || "paragraph",
+    focusArea: options.focusArea || "",
+    includeKeywords: Boolean(options.includeKeywords),
+    includeHighlights: Boolean(options.includeHighlights),
+    includeCitations: Boolean(options.includeCitations)
+  };
+}
+
+function parseSelectionIds(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+async function loadSelectedUploads(userId, ids, minimumCount = 1) {
+  const uniqueIds = [...new Set(parseSelectionIds(ids))];
+  if (uniqueIds.length < minimumCount) {
+    return { error: `Please select at least ${minimumCount} thesis summaries.` };
+  }
+
+  const uploads = await Upload.find({
+    _id: { $in: uniqueIds },
+    user: userId,
+    archived: { $ne: true },
+    processingStatus: "completed"
+  }).lean();
+
+  if (uploads.length !== uniqueIds.length) {
+    return { error: "One or more selected summaries could not be found." };
+  }
+
+  return { uploads };
 }
 
 exports.checkDuplicate = async (req, res) => {
@@ -58,7 +115,7 @@ exports.checkDuplicate = async (req, res) => {
       return res.status(400).json({ message: "Missing file fingerprint" });
     }
 
-    const optionSignature = hashValue(JSON.stringify(options));
+    const optionSignature = hashValue(JSON.stringify(buildProcessingSignatureInput(options)));
     const existingUpload = await Upload.findOne({
       user: req.session.user.id,
       fileHash,
@@ -95,7 +152,7 @@ exports.parsePDF = async (req, res) => {
 
     const fileBuffer = await fsPromises.readFile(filePath);
     const fileHash = hashValue(fileBuffer);
-    const optionSignature = hashValue(JSON.stringify(options));
+    const optionSignature = hashValue(JSON.stringify(buildProcessingSignatureInput(options)));
 
     const existingUpload = await Upload.findOne({
       user: userId,
@@ -159,6 +216,7 @@ exports.parsePDF = async (req, res) => {
       originalname,
       fileHash,
       sourceHash,
+      sourceExcerpt: limitedText,
       optionSignature,
       summaryOptions: options,
       processingStatus: "queued",
@@ -222,6 +280,9 @@ exports.getUploadStatus = async (req, res) => {
       keywords: upload.keywords || [],
       highlights: upload.highlights || [],
       citations: upload.citations || [],
+      thesisBreakdown: upload.thesisBreakdown || null,
+      sourceExcerpt: upload.sourceExcerpt || "",
+      summaryOptions: upload.summaryOptions || null,
       originalname: upload.originalname || "",
       processingError: upload.processingError || null,
       existingUpload: duplicateUpload ? buildUploadPayload(duplicateUpload) : null
@@ -350,5 +411,56 @@ exports.deletePDF = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).send("Delete failed");
+  }
+};
+
+exports.compareUploads = async (req, res) => {
+  try {
+    if (!req.session?.user) return res.status(401).json({ message: "Unauthorized" });
+
+    const { uploads, error } = await loadSelectedUploads(req.session.user.id, req.body.uploadIds, 2);
+    if (error) {
+      return res.status(400).json({ message: error });
+    }
+
+    const result = await compareTheses(uploads, String(req.body.focus || "").trim());
+    res.json(result);
+  } catch (err) {
+    console.error("[ERROR] compareUploads:", err);
+    res.status(500).json({ message: "Could not compare thesis summaries right now." });
+  }
+};
+
+exports.findResearchGaps = async (req, res) => {
+  try {
+    if (!req.session?.user) return res.status(401).json({ message: "Unauthorized" });
+
+    const { uploads, error } = await loadSelectedUploads(req.session.user.id, req.body.uploadIds, 2);
+    if (error) {
+      return res.status(400).json({ message: error });
+    }
+
+    const result = await findResearchGaps(uploads, String(req.body.focus || "").trim());
+    res.json(result);
+  } catch (err) {
+    console.error("[ERROR] findResearchGaps:", err);
+    res.status(500).json({ message: "Could not generate research gaps right now." });
+  }
+};
+
+exports.prepareDefenseBrief = async (req, res) => {
+  try {
+    if (!req.session?.user) return res.status(401).json({ message: "Unauthorized" });
+
+    const { uploads, error } = await loadSelectedUploads(req.session.user.id, [req.body.uploadId], 1);
+    if (error) {
+      return res.status(400).json({ message: "Please select one thesis summary." });
+    }
+
+    const result = await prepareDefense(uploads[0], String(req.body.emphasis || "").trim());
+    res.json(result);
+  } catch (err) {
+    console.error("[ERROR] prepareDefenseBrief:", err);
+    res.status(500).json({ message: "Could not prepare a defense brief right now." });
   }
 };

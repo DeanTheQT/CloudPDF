@@ -59,6 +59,13 @@
                     <option value="numbered">Numbered List</option>
                 </select>
 
+                <label class="field-label" for="breakdownFormat">Thesis Breakdown Format</label>
+                <select id="breakdownFormat">
+                    <option value="cards" selected>Insight Cards</option>
+                    <option value="bullet">Bullet Outline</option>
+                    <option value="compact">Compact Blocks</option>
+                </select>
+
                 <label class="field-label" for="focusArea">Focus Area</label>
                 <select id="focusArea">
                     <option value="">None</option>
@@ -70,6 +77,7 @@
 
                 <label class="field-label">Extra Options</label>
                 <div class="checkbox-group">
+                    <label><input type="checkbox" id="includeBreakdown" checked> Thesis Breakdown</label>
                     <label><input type="checkbox" id="includeKeywords"> Include Keywords</label>
                     <label><input type="checkbox" id="includeHighlights"> Include Highlights</label>
                     <label><input type="checkbox" id="includeCitations"> APA Citations</label>
@@ -105,6 +113,14 @@
                     <ul id="summaryCitations"></ul>
                 </div>
 
+                <div id="breakdownSection" hidden>
+                    <div class="breakdown-header">
+                        <h3 class="sub-title">Thesis Breakdown</h3>
+                        <p id="breakdownFormatLabel" class="breakdown-format-label"></p>
+                    </div>
+                    <div id="thesisBreakdown" class="thesis-breakdown"></div>
+                </div>
+
                 <div id="keywordsSection">
                     <h3 class="sub-title">Keywords</h3>
                     <div id="keywordsContainer" class="keywords-list">
@@ -113,6 +129,52 @@
                 </div>
             </div>
         </div>
+    </div>
+</section>
+
+<section class="analysis-studio">
+    <div class="analysis-grid">
+        <article class="analysis-card">
+            <h2>Multi-Thesis Comparison</h2>
+            <p>Compare saved thesis summaries by topic, methods, and findings.</p>
+            <label class="field-label" for="comparisonSelection">Choose 2 to 4 theses</label>
+            <select id="comparisonSelection" multiple size="6"></select>
+            <label class="field-label" for="comparisonFocus">Comparison Focus</label>
+            <input type="text" id="comparisonFocus" placeholder="Example: methodology, AI adoption, user behavior">
+            <button type="button" id="runComparisonBtn" class="btn secondary-btn">Compare Theses</button>
+            <p id="comparisonStatus" class="message"></p>
+            <div id="comparisonResult" class="analysis-result">
+                <p class="analysis-placeholder">Comparison insights will appear here.</p>
+            </div>
+        </article>
+
+        <article class="analysis-card">
+            <h2>Research Gap Finder</h2>
+            <p>Scan saved theses for repeated themes, weak spots, and future study ideas.</p>
+            <label class="field-label" for="gapSelection">Choose 2 to 5 theses</label>
+            <select id="gapSelection" multiple size="6"></select>
+            <label class="field-label" for="gapFocus">Gap Focus</label>
+            <input type="text" id="gapFocus" placeholder="Example: mobile learning, SMEs, cloud adoption">
+            <button type="button" id="runGapBtn" class="btn secondary-btn">Find Research Gaps</button>
+            <p id="gapStatus" class="message"></p>
+            <div id="gapResult" class="analysis-result">
+                <p class="analysis-placeholder">Research gap suggestions will appear here.</p>
+            </div>
+        </article>
+
+        <article class="analysis-card">
+            <h2>Defense Prep Mode</h2>
+            <p>Generate likely panel questions, weak points, and concise answer ideas.</p>
+            <label class="field-label" for="defenseSelection">Choose one thesis</label>
+            <select id="defenseSelection" size="6"></select>
+            <label class="field-label" for="defenseEmphasis">Defense Emphasis</label>
+            <input type="text" id="defenseEmphasis" placeholder="Example: methodology defense, findings, limitations">
+            <button type="button" id="runDefenseBtn" class="btn secondary-btn">Prepare Defense Brief</button>
+            <p id="defenseStatus" class="message"></p>
+            <div id="defenseResult" class="analysis-result">
+                <p class="analysis-placeholder">Defense prep notes will appear here.</p>
+            </div>
+        </article>
     </div>
 </section>
 

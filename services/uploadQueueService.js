@@ -78,6 +78,7 @@ async function processUpload(uploadId) {
     }
 
     upload.sourceHash = hashValue(limitedText);
+    upload.sourceExcerpt = limitedText;
     await upload.save();
 
     const existingUpload = await Upload.findOne({
@@ -112,6 +113,7 @@ async function processUpload(uploadId) {
     upload.keywords = aiResult.keywords || [];
     upload.highlights = aiResult.highlights || [];
     upload.citations = aiResult.citations || [];
+    upload.thesisBreakdown = aiResult.thesisBreakdown || null;
     upload.processingStatus = "completed";
     upload.processingError = null;
     upload.thesisValidatedAt = new Date();

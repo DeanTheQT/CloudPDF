@@ -33,11 +33,12 @@ const uploadSchema = new mongoose.Schema({
     style: { type: String, default: "academic" },
     format: { type: String, default: "paragraph" },
     focusArea: { type: String, default: "" },
+    includeBreakdown: { type: Boolean, default: true },
+    breakdownFormat: { type: String, default: "cards" },
     includeKeywords: { type: Boolean, default: false },
     includeHighlights: { type: Boolean, default: false },
     includeCitations: { type: Boolean, default: false }
   },
-  // --- NEW: Add this to store the AI-extracted keywords ---
   keywords: { 
     type: [String], 
     default: [] 
@@ -49,6 +50,14 @@ const uploadSchema = new mongoose.Schema({
   citations: {
     type: [String],
     default: []
+  },
+  thesisBreakdown: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null
+  },
+  sourceExcerpt: {
+    type: String,
+    default: ""
   },
   archived: {
     type: Boolean,

@@ -145,6 +145,10 @@ input, select {
     background: #fdfdfd;
 }
 
+select[multiple] {
+    min-height: 150px;
+}
+
 .drop-zone {
     border: 2px dashed #9ec5f0;
     border-radius: 14px;
@@ -288,6 +292,152 @@ input, select {
     line-height: 1.7;
 }
 
+#breakdownSection {
+    margin-top: 26px;
+}
+
+.breakdown-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.breakdown-format-label {
+    color: #6b7280;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.thesis-breakdown {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin-top: 14px;
+}
+
+.breakdown-card {
+    background: #f8fbff;
+    border: 1px solid #dbeafe;
+    border-radius: 14px;
+    padding: 16px;
+}
+
+.breakdown-card h4 {
+    margin-bottom: 8px;
+    color: #153b63;
+    font-size: 15px;
+}
+
+.breakdown-card p,
+.breakdown-card li {
+    color: #2c3e50;
+    line-height: 1.6;
+    font-size: 14px;
+}
+
+.breakdown-card ul {
+    padding-left: 18px;
+}
+
+.thesis-breakdown.compact {
+    grid-template-columns: 1fr;
+}
+
+.thesis-breakdown.compact .breakdown-card {
+    background: #fff;
+    border-color: #e5e7eb;
+}
+
+.analysis-studio {
+    width: 95%;
+    max-width: 1500px;
+    margin: 0 auto 40px;
+}
+
+.analysis-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 22px;
+}
+
+.analysis-card {
+    background: rgba(255, 255, 255, 0.97);
+    color: #1f2937;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+}
+
+.analysis-card h2 {
+    margin-bottom: 8px;
+}
+
+.analysis-card p {
+    color: #4b5563;
+    line-height: 1.6;
+    margin-bottom: 12px;
+}
+
+.secondary-btn {
+    margin-top: 14px;
+    background: #123b6d;
+}
+
+.secondary-btn:hover {
+    background: #0d2d53;
+}
+
+.analysis-result {
+    margin-top: 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 16px;
+    min-height: 220px;
+    color: #1f2937;
+}
+
+.analysis-placeholder {
+    color: #6b7280;
+}
+
+.analysis-result h3,
+.analysis-result h4 {
+    margin: 0 0 8px;
+    color: #0f172a;
+}
+
+.analysis-result p,
+.analysis-result li {
+    line-height: 1.6;
+    color: #334155;
+}
+
+.analysis-result ul {
+    padding-left: 18px;
+    margin: 8px 0 16px;
+}
+
+.comparison-table {
+    display: grid;
+    gap: 10px;
+}
+
+.comparison-row {
+    border: 1px solid #dbeafe;
+    background: #eff6ff;
+    border-radius: 12px;
+    padding: 12px;
+}
+
+.comparison-row strong {
+    display: block;
+    margin-bottom: 6px;
+    color: #123b6d;
+}
+
 /* 6. FOOTER */
 footer {
     background: #000;
@@ -307,6 +457,7 @@ footer {
     .main-dashboard { flex-direction: column; align-items: center; }
     .upload-section { flex: none; width: 100%; position: static; }
     #summaryBox { width: 100%; }
+    .analysis-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 700px) {

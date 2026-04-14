@@ -19,6 +19,9 @@ const uploadLimiter = createRateLimiter({
 router.post('/upload/precheck', uploadLimiter, uploadController.checkDuplicate);
 router.post('/upload', uploadLimiter, upload.single('pdf'), uploadController.parsePDF);
 router.get('/upload/status/:id', uploadController.getUploadStatus);
+router.post('/analysis/compare', uploadController.compareUploads);
+router.post('/analysis/gaps', uploadController.findResearchGaps);
+router.post('/analysis/defense', uploadController.prepareDefenseBrief);
 router.get('/uploads/archived', uploadController.getArchivedUploads);
 router.post('/upload/:id/restore', uploadController.restoreUpload);
 router.delete('/upload/:id/permanent', uploadController.permanentlyDeleteArchivedUpload);

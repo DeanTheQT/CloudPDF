@@ -199,6 +199,8 @@ let latestSummaryText = "";
 let latestSummaryKeywords = [];
 let latestSummaryHighlights = [];
 let latestSummaryCitations = [];
+let latestThesisBreakdown = null;
+let latestAnalysisLibrary = [];
 let latestHistoryModalItem = null;
 let latestDuplicatePreview = null;
 let currentFileFingerprint = "";
@@ -362,11 +364,92 @@ function getSummaryOptions() {
         length: document.getElementById("summaryLength")?.value || "medium",
         style: document.getElementById("summaryStyle")?.value || "academic",
         format: document.getElementById("outputFormat")?.value || "paragraph",
+        breakdownFormat: document.getElementById("breakdownFormat")?.value || "cards",
         focusArea: document.getElementById("focusArea")?.value || "",
+        includeBreakdown: Boolean(document.getElementById("includeBreakdown")?.checked),
         includeKeywords: Boolean(document.getElementById("includeKeywords")?.checked),
         includeHighlights: Boolean(document.getElementById("includeHighlights")?.checked),
         includeCitations: Boolean(document.getElementById("includeCitations")?.checked)
     };
+}
+
+function createBreakdownCard(title, content, format = "cards") {
+    const card = document.createElement("article");
+    card.className = "breakdown-card";
+
+    const heading = document.createElement("h4");
+    heading.textContent = title;
+    card.appendChild(heading);
+
+    if (Array.isArray(content)) {
+        if (!content.length) {
+            const empty = document.createElement("p");
+            empty.textContent = "Not available from this thesis.";
+            card.appendChild(empty);
+            return card;
+        }
+
+        const list = document.createElement("ul");
+        content.forEach((item) => {
+            const li = document.createElement("li");
+            li.textContent = item;
+            list.appendChild(li);
+        });
+        card.appendChild(list);
+        return card;
+    }
+
+    const body = document.createElement("p");
+    body.textContent = content || "Not available from this thesis.";
+    if (format === "compact") {
+        body.style.whiteSpace = "pre-wrap";
+    }
+    card.appendChild(body);
+    return card;
+}
+
+function renderBreakdown(breakdown, format = "cards") {
+    const breakdownSection = document.getElementById("breakdownSection");
+    const breakdownContainer = document.getElementById("thesisBreakdown");
+    const breakdownFormatLabel = document.getElementById("breakdownFormatLabel");
+    if (!breakdownSection || !breakdownContainer) return;
+
+    breakdownContainer.innerHTML = "";
+    latestThesisBreakdown = breakdown || null;
+    breakdownContainer.className = "thesis-breakdown";
+
+    if (!breakdown) {
+        breakdownSection.hidden = true;
+        return;
+    }
+
+    if (format === "compact") {
+        breakdownContainer.classList.add("compact");
+    }
+
+    const sections = [
+        ["Title", breakdown.title],
+        ["Authors", breakdown.authors || []],
+        ["Institution", breakdown.institution],
+        ["Year", breakdown.year],
+        ["Abstract", breakdown.abstract],
+        ["Problem Statement", breakdown.problemStatement],
+        ["Objectives", breakdown.objectives || []],
+        ["Methodology", breakdown.methodology],
+        ["Participants", breakdown.participants],
+        ["Instruments", breakdown.instruments],
+        ["Findings", breakdown.findings || []],
+        ["Limitations", breakdown.limitations || []],
+        ["Recommendations", breakdown.recommendations || []],
+        ["Research Gaps", breakdown.researchGaps || []]
+    ];
+
+    sections.forEach(([title, content]) => {
+        breakdownContainer.appendChild(createBreakdownCard(title, content, format));
+    });
+
+    breakdownFormatLabel.textContent = `Format: ${format}`;
+    breakdownSection.hidden = false;
 }
 
 function renderSummaryResult(data, options = getSummaryOptions()) {
@@ -375,6 +458,7 @@ function renderSummaryResult(data, options = getSummaryOptions()) {
     latestSummaryKeywords = Array.isArray(data.keywords) ? data.keywords : [];
     latestSummaryHighlights = Array.isArray(data.highlights) ? data.highlights : [];
     latestSummaryCitations = Array.isArray(data.citations) ? data.citations : [];
+    latestThesisBreakdown = data.thesisBreakdown || null;
     renderHighlightedText(summaryOverview, latestSummaryText, latestSummaryKeywords);
 
     summaryKeywords.innerHTML = "";
@@ -406,6 +490,7 @@ function renderSummaryResult(data, options = getSummaryOptions()) {
     if (keywordsSection) keywordsSection.hidden = !options.includeKeywords;
     if (highlightsSection) highlightsSection.hidden = !options.includeHighlights;
     if (citationsSection) citationsSection.hidden = !options.includeCitations;
+    renderBreakdown(options.includeBreakdown ? latestThesisBreakdown : null, options.breakdownFormat);
 
     summaryStyleUsed.textContent = `Style: ${options.style} | Length: ${options.length}`;
 }
@@ -479,6 +564,73 @@ async function pollUploadStatus(uploadId, options) {
             uploadMessage.textContent = err.message || "Could not track upload progress.";
         });
     }, 2500);
+}
+
+function renderAnalysisList(items = []) {
+    if (!items.length) {
+        return `<p class="analysis-placeholder">No usable insights were returned yet.</p>`;
+    }
+
+    return `<ul>${items.map((item) => `<li>${item}</li>`).join("")}</ul>`;
+}
+
+function renderAnalysisResult(target, sections = []) {
+    if (!target) return;
+
+    target.innerHTML = sections.map((section) => {
+        if (Array.isArray(section.value)) {
+            return `<section><h3>${section.title}</h3>${renderAnalysisList(section.value)}</section>`;
+        }
+
+        return `<section><h3>${section.title}</h3><p>${section.value || "No insights returned."}</p></section>`;
+    }).join("");
+}
+
+function getSelectedValues(selectEl) {
+    if (!selectEl) return [];
+    return [...selectEl.selectedOptions].map((option) => option.value).filter(Boolean);
+}
+
+function populateSelection(selectEl, uploads, { single = false } = {}) {
+    if (!selectEl) return;
+
+    selectEl.innerHTML = "";
+    uploads.forEach((upload, index) => {
+        const option = document.createElement("option");
+        option.value = upload._id;
+        option.textContent = upload.thesisBreakdown?.title || upload.originalname || `Saved thesis ${index + 1}`;
+        selectEl.appendChild(option);
+    });
+
+    if (single && selectEl.options[0]) {
+        selectEl.options[0].selected = true;
+    }
+}
+
+async function loadAnalysisLibrary() {
+    if (document.body.dataset.page !== "summarizer") return;
+
+    const comparisonSelection = document.getElementById("comparisonSelection");
+    const gapSelection = document.getElementById("gapSelection");
+    const defenseSelection = document.getElementById("defenseSelection");
+
+    if (!comparisonSelection || !gapSelection || !defenseSelection) return;
+
+    try {
+        const res = await nativeFetch("/uploads?limit=100");
+        if (!res.ok) throw new Error("Failed to load summaries");
+
+        latestAnalysisLibrary = await res.json();
+        populateSelection(comparisonSelection, latestAnalysisLibrary);
+        populateSelection(gapSelection, latestAnalysisLibrary);
+        populateSelection(defenseSelection, latestAnalysisLibrary, { single: true });
+    } catch (err) {
+        console.error(err);
+        [comparisonSelection, gapSelection, defenseSelection].forEach((selectEl) => {
+            if (!selectEl) return;
+            selectEl.innerHTML = `<option value="">Could not load saved summaries</option>`;
+        });
+    }
 }
 
 /* =========================
@@ -1046,8 +1198,24 @@ const summaryCitations = document.getElementById("summaryCitations");
 const keywordsSection = document.getElementById("keywordsSection");
 const highlightsSection = document.getElementById("highlightsSection");
 const citationsSection = document.getElementById("citationsSection");
+const breakdownSection = document.getElementById("breakdownSection");
 const dropZone = document.getElementById("dropZone");
 const preflightWarning = document.getElementById("preflightWarning");
+const comparisonSelection = document.getElementById("comparisonSelection");
+const comparisonFocus = document.getElementById("comparisonFocus");
+const runComparisonBtn = document.getElementById("runComparisonBtn");
+const comparisonStatus = document.getElementById("comparisonStatus");
+const comparisonResult = document.getElementById("comparisonResult");
+const gapSelection = document.getElementById("gapSelection");
+const gapFocus = document.getElementById("gapFocus");
+const runGapBtn = document.getElementById("runGapBtn");
+const gapStatus = document.getElementById("gapStatus");
+const gapResult = document.getElementById("gapResult");
+const defenseSelection = document.getElementById("defenseSelection");
+const defenseEmphasis = document.getElementById("defenseEmphasis");
+const runDefenseBtn = document.getElementById("runDefenseBtn");
+const defenseStatus = document.getElementById("defenseStatus");
+const defenseResult = document.getElementById("defenseResult");
 
 function syncSelectedFileLabel() {
   if (selectedFileName && pdfFile) {
@@ -1162,7 +1330,7 @@ if (dropZone && pdfFile) {
   });
 }
 
-["summaryLength", "summaryStyle", "outputFormat", "focusArea", "includeKeywords", "includeHighlights", "includeCitations"]
+["summaryLength", "summaryStyle", "outputFormat", "breakdownFormat", "focusArea", "includeBreakdown", "includeKeywords", "includeHighlights", "includeCitations"]
   .forEach((id) => {
     const el = document.getElementById(id);
     el?.addEventListener("change", () => {
@@ -1200,12 +1368,14 @@ uploadForm?.addEventListener("submit", async (e) => {
   summaryKeywords.innerHTML = ""; // Clear previous keywords
   if (summaryPoints) summaryPoints.innerHTML = "";
   if (summaryCitations) summaryCitations.innerHTML = "";
+  if (breakdownSection) breakdownSection.hidden = true;
   summaryStyleUsed.textContent = "Summarizing...";
   if (summaryCopyStatus) summaryCopyStatus.textContent = "";
   latestSummaryText = "";
   latestSummaryKeywords = [];
   latestSummaryHighlights = [];
   latestSummaryCitations = [];
+  latestThesisBreakdown = null;
 
   const formData = new FormData();
   formData.append("pdf", file); // Note: Ensure your backend uses upload.single("pdf")
@@ -1235,6 +1405,7 @@ uploadForm?.addEventListener("submit", async (e) => {
     uploadForm.reset();
     syncSelectedFileLabel();
     resetPreflightState();
+    loadAnalysisLibrary().catch((error) => console.error(error));
 
   } catch (err) {
     console.error("[ERROR] PDF upload failed:", err);
@@ -1246,6 +1417,7 @@ uploadForm?.addEventListener("submit", async (e) => {
     if (duplicatePayload?.duplicate && duplicatePayload.existingUpload) {
       renderSummaryResult(duplicatePayload.existingUpload, options);
       uploadMessage.textContent = duplicatePayload.message || "This thesis was already summarized with the same options.";
+      loadAnalysisLibrary().catch((error) => console.error(error));
       return;
     }
 
@@ -1268,11 +1440,153 @@ copySummaryBtn?.addEventListener("click", async () => {
         const citationsBlock = latestSummaryCitations.length
             ? `\n\nAPA Citations:\n- ${latestSummaryCitations.join("\n- ")}`
             : "";
-        await copyTextToClipboard(`${latestSummaryText}${highlightsBlock}${citationsBlock}${keywordLine}`);
+        const breakdownBlock = latestThesisBreakdown
+            ? `\n\nThesis Breakdown:\n${JSON.stringify(latestThesisBreakdown, null, 2)}`
+            : "";
+        await copyTextToClipboard(`${latestSummaryText}${highlightsBlock}${citationsBlock}${keywordLine}${breakdownBlock}`);
         if (summaryCopyStatus) summaryCopyStatus.textContent = "Summary copied to clipboard.";
     } catch (err) {
         console.error(err);
         if (summaryCopyStatus) summaryCopyStatus.textContent = "Copy failed. Please try again.";
+    }
+});
+
+runComparisonBtn?.addEventListener("click", async () => {
+    const uploadIds = getSelectedValues(comparisonSelection);
+    if (uploadIds.length < 2) {
+        if (comparisonStatus) comparisonStatus.textContent = "Select at least two theses to compare.";
+        return;
+    }
+
+    if (comparisonStatus) comparisonStatus.textContent = "Comparing theses...";
+    if (comparisonResult) comparisonResult.innerHTML = `<p class="analysis-placeholder">Building comparison insights...</p>`;
+
+    try {
+        const res = await csrfFetch("/analysis/compare", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                uploadIds,
+                focus: comparisonFocus?.value || ""
+            })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Could not compare theses.");
+
+        if (comparisonStatus) comparisonStatus.textContent = "Comparison ready.";
+        if (comparisonResult) {
+            comparisonResult.innerHTML = `
+                <section>
+                    <h3>Overview</h3>
+                    <p>${data.overview || "No overview returned."}</p>
+                </section>
+                <section>
+                    <h3>Similarities</h3>
+                    ${renderAnalysisList(data.similarities || [])}
+                </section>
+                <section>
+                    <h3>Differences</h3>
+                    ${renderAnalysisList(data.differences || [])}
+                </section>
+                <section>
+                    <h3>Methodology Comparison</h3>
+                    <div class="comparison-table">
+                        ${(data.methodologyComparison || []).map((item) => `
+                            <div class="comparison-row">
+                                <strong>${item.title || "Untitled thesis"}</strong>
+                                <p><b>Methodology:</b> ${item.methodology || "Not available."}</p>
+                                <p><b>Notable finding:</b> ${item.notableFinding || "Not available."}</p>
+                            </div>
+                        `).join("") || `<p class="analysis-placeholder">No methodology comparison returned.</p>`}
+                    </div>
+                </section>
+                <section>
+                    <h3>Recommended Positioning</h3>
+                    ${renderAnalysisList(data.recommendedPositioning || [])}
+                </section>
+            `;
+        }
+    } catch (err) {
+        console.error(err);
+        if (comparisonStatus) comparisonStatus.textContent = err.message || "Comparison failed.";
+        if (comparisonResult) comparisonResult.innerHTML = `<p class="analysis-placeholder">${err.message || "Comparison failed."}</p>`;
+    }
+});
+
+runGapBtn?.addEventListener("click", async () => {
+    const uploadIds = getSelectedValues(gapSelection);
+    if (uploadIds.length < 2) {
+        if (gapStatus) gapStatus.textContent = "Select at least two theses to find research gaps.";
+        return;
+    }
+
+    if (gapStatus) gapStatus.textContent = "Scanning for research gaps...";
+    if (gapResult) gapResult.innerHTML = `<p class="analysis-placeholder">Reviewing repeated themes and underexplored areas...</p>`;
+
+    try {
+        const res = await csrfFetch("/analysis/gaps", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                uploadIds,
+                focus: gapFocus?.value || ""
+            })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Could not find research gaps.");
+
+        if (gapStatus) gapStatus.textContent = "Research gap report ready.";
+        renderAnalysisResult(gapResult, [
+            { title: "Overview", value: data.overview || "" },
+            { title: "Repeated Themes", value: data.repeatedThemes || [] },
+            { title: "Underexplored Areas", value: data.underexploredAreas || [] },
+            { title: "Future Study Ideas", value: data.futureStudyIdeas || [] },
+            { title: "Cautions", value: data.cautions || [] }
+        ]);
+    } catch (err) {
+        console.error(err);
+        if (gapStatus) gapStatus.textContent = err.message || "Gap analysis failed.";
+        if (gapResult) gapResult.innerHTML = `<p class="analysis-placeholder">${err.message || "Gap analysis failed."}</p>`;
+    }
+});
+
+runDefenseBtn?.addEventListener("click", async () => {
+    const uploadId = defenseSelection?.value;
+    if (!uploadId) {
+        if (defenseStatus) defenseStatus.textContent = "Select one thesis to prepare a defense brief.";
+        return;
+    }
+
+    if (defenseStatus) defenseStatus.textContent = "Preparing defense brief...";
+    if (defenseResult) defenseResult.innerHTML = `<p class="analysis-placeholder">Generating likely panel questions and answer ideas...</p>`;
+
+    try {
+        const res = await csrfFetch("/analysis/defense", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                uploadId,
+                emphasis: defenseEmphasis?.value || ""
+            })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Could not prepare defense brief.");
+
+        if (defenseStatus) defenseStatus.textContent = "Defense brief ready.";
+        renderAnalysisResult(defenseResult, [
+            { title: "Overview", value: data.overview || "" },
+            { title: "Panel Questions", value: data.panelQuestions || [] },
+            { title: "Vulnerabilities", value: data.vulnerabilities || [] },
+            { title: "Suggested Answers", value: data.suggestedAnswers || [] },
+            { title: "Presentation Tips", value: data.presentationTips || [] }
+        ]);
+    } catch (err) {
+        console.error(err);
+        if (defenseStatus) defenseStatus.textContent = err.message || "Defense prep failed.";
+        if (defenseResult) defenseResult.innerHTML = `<p class="analysis-placeholder">${err.message || "Defense prep failed."}</p>`;
     }
 });
 
@@ -1678,6 +1992,7 @@ document.addEventListener("DOMContentLoaded", () => {
     updateNavbar();
     loadAccountStats();
     loadUserInbox();
+    loadAnalysisLibrary();
     if (document.body.dataset.page === "user-history") {
         loadHistory();
     }

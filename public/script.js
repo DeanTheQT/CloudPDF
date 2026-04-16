@@ -1610,7 +1610,7 @@ async function updateNavbar() {
         const notificationHost = document.getElementById("notificationHost");
 
         if (data.loggedIn) {
-            if (brandLink) brandLink.href = "home.html";
+            if (brandLink) brandLink.href = "index.html";
             if (summarizerNavItem) summarizerNavItem.style.display = "inline-block";
             if (loginBtn) loginBtn.style.display = "none";
             if (signupBtn) signupBtn.style.display = "none";
@@ -1631,7 +1631,7 @@ async function updateNavbar() {
             if (["user-history", "summarizer"].includes(document.body.dataset.page)) {
                 window.location.href = "login.html";
             }
-            if (brandLink) brandLink.href = "index.html";
+            if (brandLink) brandLink.href = "home.html";
             if (summarizerNavItem) summarizerNavItem.style.display = "none";
             if (loginBtn) loginBtn.style.display = "inline-block";
             if (signupBtn) signupBtn.style.display = "inline-block";

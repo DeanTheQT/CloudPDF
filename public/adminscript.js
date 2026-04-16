@@ -227,7 +227,7 @@ async function updateNavbar() {
         }
 
         const brandLink = document.querySelector(".logo a");
-        if (brandLink) brandLink.href = "home.html";
+        if (brandLink) brandLink.href = "index.html";
         document.getElementById("summarizerNavItem").style.display = "inline-block";
         document.getElementById("loginBtn").style.display = "none";
         document.getElementById("signupBtn").style.display = "none";

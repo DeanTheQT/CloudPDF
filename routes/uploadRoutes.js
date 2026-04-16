@@ -6,7 +6,7 @@ const { createRateLimiter } = require("../middleware/rateLimit");
 const router = express.Router();
 const upload = multer({
   dest: 'uploads/',
-  limits: { fileSize: 15 * 1024 * 1024 }
+  limits: { fileSize: 5 * 1024 * 1024 }
 });
 const uploadLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,

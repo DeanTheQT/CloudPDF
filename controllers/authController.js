@@ -1,425 +1,286 @@
-const User = require("../models/User");
-const Upload = require("../models/Upload");
-const Message = require("../models/Message");
 const bcrypt = require("bcrypt");
-const mongoose = require("mongoose");
-const fs = require("fs");
-const path = require("path");
+const userService = require("../services/userService");
+const eventEmitter = require("../services/eventEmitter");
 const { logEvent } = require("../services/logService");
-const { sendOtpEmail, sendPasswordResetEmail } = require("../services/emailService");
 const { getOrSetCache, deleteCacheByPrefix } = require("../services/cacheService");
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
-
-const normalizeEmail = (email = "") => email.trim().toLowerCase();
-const createOtp = () => String(Math.floor(100000 + Math.random() * 900000));
-const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
-const OTP_MAX_VERIFY_ATTEMPTS = 5;
-
-const toObjectId = (id) => {
-    try {
-        return new mongoose.Types.ObjectId(id);
-    } catch (e) {
-        return null;
-    }
-};
+const { sendOtpEmail } = require("../services/emailService");
+const { toObjectId } = require("../services/securityUtils");
+const { asyncHandler, AppError } = require("../middleware/errorMiddleware");
+const {
+  EMAIL_REGEX,
+  OTP_RESEND_COOLDOWN_MS,
+  OTP_MAX_VERIFY_ATTEMPTS,
+  OTP_EXPIRATION_MS
+} = require("../config/constants");
 
 // =========================
 // REGISTER 
 // =========================
-exports.register = async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        const normalizedEmail = normalizeEmail(email);
+exports.register = asyncHandler(async (req, res, next) => {
+  const { email, password } = req.body;
+  const normalizedEmail = (email || "").trim().toLowerCase();
 
-        if (!password || !normalizedEmail) {
-            return res.status(400).json({ error: "Missing fields" });
-        }
+  if (!password || !normalizedEmail) {
+    throw new AppError("Missing fields", 400);
+  }
 
-        if (!EMAIL_REGEX.test(normalizedEmail)) {
-            return res.status(400).json({ error: "Use a valid email address" });
-        }
+  if (!EMAIL_REGEX.test(normalizedEmail)) {
+    throw new AppError("Use a valid email address", 400);
+  }
 
-        const existingEmail = await User.findOne({ email: normalizedEmail, archived: { $ne: true } });
-        if (existingEmail) {
-            return res.status(400).json({ error: "Email already exists" });
-        }
+  const existingEmail = await userService.findUserByEmail(normalizedEmail);
+  if (existingEmail) {
+    throw new AppError("Email already exists", 400);
+  }
 
-        const otpCode = createOtp();
-        const pendingUser = {
-            username: normalizedEmail,
-            email: normalizedEmail,
-            password
-        };
+  const otpCode = userService.createOtp();
+  const pendingUser = {
+    username: normalizedEmail,
+    email: normalizedEmail,
+    password
+  };
 
-        await sendOtpEmail({
-            email: normalizedEmail,
-            otp: otpCode,
-            username: normalizedEmail
-        });
+  await sendOtpEmail({
+    email: normalizedEmail,
+    otp: otpCode,
+    username: normalizedEmail
+  });
 
-        req.session.pendingRegistration = {
-            ...pendingUser,
-            otpCode,
-            otpExpiresAt: Date.now() + 10 * 60 * 1000,
-            otpAttempts: 0,
-            otpLastSentAt: Date.now()
-        };
+  req.session.pendingRegistration = {
+    ...pendingUser,
+    otpCode,
+    otpExpiresAt: Date.now() + OTP_EXPIRATION_MS,
+    otpAttempts: 0,
+    otpLastSentAt: Date.now()
+  };
 
-        req.session.save(err => {
-            if (err) return res.status(500).json({ error: "Session error" });
-            res.json({
-                success: true,
-                requiresOtp: true,
-                message: "OTP sent to your email address",
-                expiresInSeconds: 600
-            });
-        });
-    } catch (err) {
-        console.error("[ERROR] register:", err);
-        res.status(500).json({ error: err.message || "Registration failed" });
-    }
-};
+  req.session.save(err => {
+    if (err) return next(new AppError("Session error", 500));
+    res.json({
+      success: true,
+      requiresOtp: true,
+      message: "OTP sent to your email address",
+      expiresInSeconds: Math.round(OTP_EXPIRATION_MS / 1000)
+    });
+  });
+});
 
-exports.verifyOtp = async (req, res) => {
-    try {
-        const { otp } = req.body;
-        const pending = req.session.pendingRegistration;
+exports.verifyOtp = asyncHandler(async (req, res, next) => {
+  const { otp } = req.body;
+  const pending = req.session.pendingRegistration;
 
-        if (!pending) {
-            return res.status(400).json({ error: "No pending registration found" });
-        }
+  if (!pending) {
+    throw new AppError("No pending registration found", 400);
+  }
 
-        if ((pending.otpAttempts || 0) >= OTP_MAX_VERIFY_ATTEMPTS) {
-            delete req.session.pendingRegistration;
-            return res.status(429).json({ error: "Too many incorrect OTP attempts. Please register again." });
-        }
+  if ((pending.otpAttempts || 0) >= OTP_MAX_VERIFY_ATTEMPTS) {
+    delete req.session.pendingRegistration;
+    throw new AppError("Too many incorrect OTP attempts. Please register again.", 429);
+  }
 
-        if (!otp || otp.trim() !== pending.otpCode) {
-            pending.otpAttempts = (pending.otpAttempts || 0) + 1;
-            req.session.pendingRegistration = pending;
-            return res.status(400).json({ error: "Invalid OTP" });
-        }
+  if (!otp || otp.trim() !== pending.otpCode) {
+    pending.otpAttempts = (pending.otpAttempts || 0) + 1;
+    req.session.pendingRegistration = pending;
+    throw new AppError("Invalid OTP", 400);
+  }
 
-        if (Date.now() > pending.otpExpiresAt) {
-            delete req.session.pendingRegistration;
-            return res.status(400).json({ error: "OTP expired. Please register again." });
-        }
+  if (Date.now() > pending.otpExpiresAt) {
+    delete req.session.pendingRegistration;
+    throw new AppError("OTP expired. Please register again.", 400);
+  }
 
-        const existingEmail = await User.findOne({ email: pending.email, archived: { $ne: true } });
+  const existingEmail = await userService.findUserByEmail(pending.email);
+  if (existingEmail) {
+    delete req.session.pendingRegistration;
+    throw new AppError("Email already exists", 400);
+  }
 
-        if (existingEmail) {
-            delete req.session.pendingRegistration;
-            return res.status(400).json({ error: "Email already exists" });
-        }
+  // Use service layer to create user
+  const user = await userService.createUser(pending.username, pending.email, pending.password);
 
-        const hashedPassword = await bcrypt.hash(pending.password, 10);
-        const user = await User.create({
-            username: pending.username,
-            email: pending.email,
-            password: hashedPassword,
-            emailVerified: true,
-            otpCode: null,
-            otpExpiresAt: null,
-            otpAttempts: 0,
-            otpLastSentAt: null
-        });
+  // Emit event to decouple Firestore mirror writing (asynchronously)
+  eventEmitter.emit("user:registered", user);
 
-        req.session.user = {
-            id: user._id.toString(),
-            email: user.email,
-            isAdmin: user.isAdmin || false
-        };
-        delete req.session.pendingRegistration;
+  req.session.regenerate(err => {
+    if (err) return next(new AppError("Session error", 500));
+    req.session.user = {
+      id: user._id.toString(),
+      email: user.email,
+      isAdmin: user.isAdmin || false
+    };
 
-        req.session.save(err => {
-            if (err) return res.status(500).json({ error: "Session error" });
-            logEvent(req, "user_registered", {
-                registeredUserId: user._id.toString(),
-                email: user.email
-            });
-            res.json({ success: true, redirect: "/index.html" });
-        });
-    } catch (err) {
-        console.error("[ERROR] verifyOtp:", err);
-        res.status(500).json({ error: "OTP verification failed" });
-    }
-};
+    logEvent(req, "user_registered", {
+      registeredUserId: user._id.toString(),
+      email: user.email
+    });
 
-exports.resendRegistrationOtp = async (req, res) => {
-    try {
-        const pending = req.session.pendingRegistration;
-        if (!pending?.email) {
-            return res.status(400).json({ error: "No pending registration found" });
-        }
+    req.session.save(saveErr => {
+      if (saveErr) return next(new AppError("Session error", 500));
+      res.json({ success: true, redirect: "/index.html" });
+    });
+  });
+});
 
-        if (pending.otpLastSentAt && Date.now() - pending.otpLastSentAt < OTP_RESEND_COOLDOWN_MS) {
-            const remainingSeconds = Math.ceil((OTP_RESEND_COOLDOWN_MS - (Date.now() - pending.otpLastSentAt)) / 1000);
-            return res.status(429).json({ error: `Please wait ${remainingSeconds} seconds before requesting another OTP.` });
-        }
+exports.resendRegistrationOtp = asyncHandler(async (req, res, next) => {
+  const pending = req.session.pendingRegistration;
+  if (!pending?.email) {
+    throw new AppError("No pending registration found", 400);
+  }
 
-        const otpCode = createOtp();
-        pending.otpCode = otpCode;
-        pending.otpExpiresAt = Date.now() + 10 * 60 * 1000;
-        pending.otpAttempts = 0;
-        pending.otpLastSentAt = Date.now();
+  if (pending.otpLastSentAt && Date.now() - pending.otpLastSentAt < OTP_RESEND_COOLDOWN_MS) {
+    const remainingSeconds = Math.ceil((OTP_RESEND_COOLDOWN_MS - (Date.now() - pending.otpLastSentAt)) / 1000);
+    throw new AppError(`Please wait ${remainingSeconds} seconds before requesting another OTP.`, 429);
+  }
 
-        await sendOtpEmail({
-            email: pending.email,
-            otp: otpCode,
-            username: pending.email
-        });
+  const otpCode = userService.createOtp();
+  pending.otpCode = otpCode;
+  pending.otpExpiresAt = Date.now() + OTP_EXPIRATION_MS;
+  pending.otpAttempts = 0;
+  pending.otpLastSentAt = Date.now();
 
-        req.session.pendingRegistration = pending;
-        req.session.save((err) => {
-            if (err) return res.status(500).json({ error: "Session error" });
-            res.json({
-                success: true,
-                message: "A new OTP has been sent to your email.",
-                expiresInSeconds: 600
-            });
-        });
-    } catch (err) {
-        console.error("[ERROR] resendRegistrationOtp:", err);
-        res.status(500).json({ error: "Could not resend OTP" });
-    }
-};
+  await sendOtpEmail({
+    email: pending.email,
+    otp: otpCode,
+    username: pending.email
+  });
+
+  req.session.pendingRegistration = pending;
+  req.session.save((err) => {
+    if (err) return next(new AppError("Session error", 500));
+    res.json({
+      success: true,
+      message: "A new OTP has been sent to your email.",
+      expiresInSeconds: Math.round(OTP_EXPIRATION_MS / 1000)
+    });
+  });
+});
 
 // =========================
 // LOGIN
 // =========================
-exports.login = async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        const normalizedEmail = normalizeEmail(email);
-        const user = await User.findOne({ email: normalizedEmail, archived: { $ne: true } });
+exports.login = asyncHandler(async (req, res, next) => {
+  const { email, password } = req.body;
+  const normalizedEmail = (email || "").trim().toLowerCase();
+  const user = await userService.findUserByEmail(normalizedEmail);
 
-        if (!user) return res.status(400).json({ message: "User not found" });
+  if (!user) throw new AppError("Invalid email or password", 400);
 
-        const match = await bcrypt.compare(password, user.password);
-        if (!match) return res.status(400).json({ message: "Wrong password" });
+  const match = await bcrypt.compare(password, user.password);
+  if (!match) throw new AppError("Invalid email or password", 400);
 
-        req.session.user = {
-            id: user._id.toString(),
-            email: user.email,
-            isAdmin: user.isAdmin || false
-        };
-
-        req.session.save(err => {
-            if (err) return res.status(500).json({ error: "Session error" });
-            res.json({ redirect: user.isAdmin ? "admin.html" : "index.html" });
-        });
-    } catch (err) {
-        res.status(500).json({ message: "Login failed" });
-    }
-};
+  req.session.regenerate(err => {
+    if (err) return next(new AppError("Session error", 500));
+    req.session.user = {
+      id: user._id.toString(),
+      email: user.email,
+      isAdmin: user.isAdmin || false
+    };
+    req.session.save(saveErr => {
+      if (saveErr) return next(new AppError("Session error", 500));
+      res.json({ redirect: user.isAdmin ? "admin.html" : "index.html" });
+    });
+  });
+});
 
 exports.getSession = (req, res) => {
-    if (!req.session.user) return res.status(401).json({ loggedIn: false });
-    res.json({ loggedIn: true, user: req.session.user, csrfToken: req.session.csrfToken });
+  if (!req.session.user) return res.status(401).json({ loggedIn: false });
+  res.json({ loggedIn: true, user: req.session.user });
 };
 
-exports.getDashboardStats = async (req, res) => {
-    try {
-        const sessionUser = req.session?.user;
-        if (!sessionUser?.id) {
-            return res.status(401).json({ message: "Not logged in" });
-        }
+exports.getDashboardStats = asyncHandler(async (req, res) => {
+  const sessionUser = req.session?.user;
+  if (!sessionUser?.id) {
+    throw new AppError("Not logged in", 401);
+  }
 
-        const cacheKey = `account:stats:${sessionUser.id}`;
-        const stats = await getOrSetCache(cacheKey, 30 * 1000, async () => {
-            const [uploadCount, messageCount, latestUpload] = await Promise.all([
-                Upload.countDocuments({ user: sessionUser.id, archived: { $ne: true } }),
-                Message.countDocuments({ user: sessionUser.id, archived: { $ne: true } }),
-                Upload.findOne({ user: sessionUser.id, archived: { $ne: true } }).sort({ createdAt: -1 }).select("createdAt originalname").lean()
-            ]);
+  const cacheKey = `account:stats:${sessionUser.id}`;
+  const stats = await getOrSetCache(cacheKey, 30 * 1000, async () => {
+    const Upload = require("../models/Upload");
+    const Message = require("../models/Message");
 
-            return {
-                uploadCount,
-                messageCount,
-                latestUploadName: latestUpload?.originalname || null,
-                latestUploadAt: latestUpload?.createdAt || null,
-                memberSince: toObjectId(sessionUser.id)?.getTimestamp() || null
-            };
-        });
+    const [uploadCount, messageCount, latestUpload] = await Promise.all([
+      Upload.countDocuments({ user: sessionUser.id, archived: { $ne: true } }),
+      Message.countDocuments({ user: sessionUser.id, archived: { $ne: true } }),
+      Upload.findOne({ user: sessionUser.id, archived: { $ne: true } }).sort({ createdAt: -1 }).select("createdAt originalname").lean()
+    ]);
 
-        res.json(stats);
-    } catch (err) {
-        console.error("[ERROR] getDashboardStats:", err);
-        res.status(500).json({ message: "Failed to load dashboard stats" });
-    }
-};
+    return {
+      uploadCount,
+      messageCount,
+      latestUploadName: latestUpload?.originalname || null,
+      latestUploadAt: latestUpload?.createdAt || null,
+      memberSince: toObjectId(sessionUser.id)?.getTimestamp() || null
+    };
+  });
+
+  res.json(stats);
+});
 
 exports.logout = (req, res) => {
-    const sessionUser = req.session?.user;
-    req.session.destroy(err => {
-        if (err) return res.status(500).json({ message: "Logout failed" });
-        res.clearCookie('cloudpdf_session');
-        res.json({ message: "Logged out" });
+  req.session.destroy(err => {
+    if (err) return res.status(500).json({ message: "Logout failed" });
+    res.clearCookie('cloudpdf_session');
+    res.json({ message: "Logged out" });
+  });
+};
+
+exports.changePassword = asyncHandler(async (req, res) => {
+  if (!req.session.user) throw new AppError("Not logged in", 401);
+  const { currentPassword, newPassword } = req.body;
+
+  await userService.changeUserPassword(req.session.user.id, currentPassword, newPassword);
+  res.json({ success: true, message: "Password updated" });
+});
+
+exports.requestPasswordReset = asyncHandler(async (req, res) => {
+  const result = await userService.requestPasswordReset(req.body.email);
+  res.json({
+    ...result,
+    expiresInSeconds: Math.round(OTP_EXPIRATION_MS / 1000)
+  });
+});
+
+exports.resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
+  const { email, otp, newPassword } = req.body;
+  const user = await userService.resetPassword(email, otp, newPassword);
+
+  req.session.regenerate((err) => {
+    if (err) return next(new AppError("Session error", 500));
+    req.session.user = {
+      id: user._id.toString(),
+      email: user.email,
+      isAdmin: user.isAdmin || false
+    };
+    req.session.save((saveErr) => {
+      if (saveErr) return next(new AppError("Session error", 500));
+      res.json({
+        success: true,
+        message: "Password reset successful. Redirecting...",
+        redirect: user.isAdmin ? "admin.html" : "index.html"
+      });
     });
-};
+  });
+});
 
-exports.changePassword = async (req, res) => {
-    try {
-        if (!req.session.user) return res.status(401).json({ message: "Not logged in" });
-        const { currentPassword, newPassword } = req.body;
+exports.selfDestruct = asyncHandler(async (req, res, next) => {
+  const sessionUser = req.session?.user;
+  const userId = sessionUser?.id;
 
-        if (!newPassword || newPassword.length < 8) {
-            return res.status(400).json({ message: "Password must be at least 8 characters long" });
-        }
-        
-        const user = await User.findOne({ _id: toObjectId(req.session.user.id), archived: { $ne: true } });
-        if (!user) return res.status(404).json({ message: "User not found" });
+  if (!userId) {
+    throw new AppError("No active session. Please log in again.", 401);
+  }
 
-        const match = await bcrypt.compare(currentPassword, user.password);
-        if (!match) return res.status(400).json({ message: "Current password incorrect" });
+  await userService.selfDestructAccount(userId);
+  deleteCacheByPrefix(`account:stats:${userId}`);
+  deleteCacheByPrefix(`uploads:user:${userId}:`);
 
-        user.password = await bcrypt.hash(newPassword, 10);
-        await user.save();
-        res.json({ success: true, message: "Password updated" });
-    } catch (err) {
-        res.status(500).json({ message: "Update failed" });
+  req.session.destroy((err) => {
+    if (err) {
+      return next(new AppError("Could not log out.", 500));
     }
-};
 
-exports.requestPasswordReset = async (req, res) => {
-    try {
-        const normalizedEmail = normalizeEmail(req.body.email);
-        if (!EMAIL_REGEX.test(normalizedEmail)) {
-            return res.status(400).json({ error: "Use a valid email address" });
-        }
-
-        const user = await User.findOne({ email: normalizedEmail, archived: { $ne: true } });
-        if (!user) {
-            return res.status(404).json({ error: "No account found for that email" });
-        }
-
-        const otpCode = createOtp();
-        user.otpCode = otpCode;
-        user.otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
-        user.otpAttempts = 0;
-        user.otpLastSentAt = new Date();
-        await user.save();
-
-        await sendPasswordResetEmail({ email: user.email, otp: otpCode });
-
-        res.json({
-            success: true,
-            message: "Password reset OTP sent to your email.",
-            expiresInSeconds: 600
-        });
-    } catch (err) {
-        console.error("[ERROR] requestPasswordReset:", err);
-        res.status(500).json({ error: err.message || "Could not send reset OTP" });
-    }
-};
-
-exports.resetPasswordWithOtp = async (req, res) => {
-    try {
-        const normalizedEmail = normalizeEmail(req.body.email);
-        const otp = String(req.body.otp || "").trim();
-        const newPassword = req.body.newPassword || "";
-
-        if (!EMAIL_REGEX.test(normalizedEmail)) {
-            return res.status(400).json({ error: "Use a valid email address" });
-        }
-
-        if (!otp) {
-            return res.status(400).json({ error: "OTP is required" });
-        }
-
-        if (newPassword.length < 8) {
-            return res.status(400).json({ error: "Password must be at least 8 characters long" });
-        }
-
-        const user = await User.findOne({ email: normalizedEmail, archived: { $ne: true } });
-        if (!user) {
-            return res.status(404).json({ error: "No account found for that email" });
-        }
-
-        if ((user.otpAttempts || 0) >= OTP_MAX_VERIFY_ATTEMPTS) {
-            return res.status(429).json({ error: "Too many incorrect OTP attempts. Request a new reset code." });
-        }
-
-        if (!user.otpCode || otp !== user.otpCode) {
-            user.otpAttempts = (user.otpAttempts || 0) + 1;
-            await user.save();
-            return res.status(400).json({ error: "Invalid OTP" });
-        }
-
-        if (!user.otpExpiresAt || Date.now() > new Date(user.otpExpiresAt).getTime()) {
-            user.otpCode = null;
-            user.otpExpiresAt = null;
-            user.otpAttempts = 0;
-            await user.save();
-            return res.status(400).json({ error: "OTP expired. Request a new reset code." });
-        }
-
-        user.password = await bcrypt.hash(newPassword, 10);
-        user.otpCode = null;
-        user.otpExpiresAt = null;
-        user.otpAttempts = 0;
-        user.otpLastSentAt = null;
-        await user.save();
-
-        req.session.user = {
-            id: user._id.toString(),
-            email: user.email,
-            isAdmin: user.isAdmin || false
-        };
-
-        req.session.save((err) => {
-            if (err) return res.status(500).json({ error: "Session error" });
-            res.json({
-                success: true,
-                message: "Password reset successful. Redirecting...",
-                redirect: user.isAdmin ? "admin.html" : "index.html"
-            });
-        });
-    } catch (err) {
-        console.error("[ERROR] resetPasswordWithOtp:", err);
-        res.status(500).json({ error: "Password reset failed" });
-    }
-};
-
-
-exports.selfDestruct = async (req, res) => {
-    try {
-        const sessionUser = req.session?.user;
-        const userId = sessionUser?.id;
-
-        if (!userId) {
-            return res.status(401).json({ message: "No active session. Please log in again." });
-        }
-
-        const userUploads = await Upload.find({ user: userId, archived: { $ne: true } }).select("filename");
-
-        for (const upload of userUploads) {
-            const filePath = path.join(__dirname, "../uploads", upload.filename);
-            if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath);
-            }
-        }
-
-        await Promise.all([
-            Upload.updateMany({ user: userId, archived: { $ne: true } }, { archived: true, archivedAt: new Date() }),
-            Message.updateMany({ user: userId, archived: { $ne: true } }, { archived: true, archivedAt: new Date() }),
-            User.findByIdAndUpdate(userId, { archived: true, archivedAt: new Date() })
-        ]);
-        deleteCacheByPrefix(`account:stats:${userId}`);
-        deleteCacheByPrefix(`uploads:user:${userId}:`);
-
-        req.session.destroy((err) => {
-            if (err) {
-                return res.status(500).json({ message: "Could not log out." });
-            }
-
-            res.clearCookie("cloudpdf_session");
-            logEvent({ method: req.method, originalUrl: req.originalUrl, session: { user: sessionUser } }, "account_deleted", { deletedUserId: userId });
-            return res.json({ success: true, message: "Account deleted." });
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Server error." });
-    }
-};
+    res.clearCookie("cloudpdf_session");
+    logEvent({ method: req.method, originalUrl: req.originalUrl, session: { user: sessionUser } }, "account_deleted", { deletedUserId: userId });
+    return res.json({ success: true, message: "Account deleted." });
+  });
+});

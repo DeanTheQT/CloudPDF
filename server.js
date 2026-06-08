@@ -16,11 +16,18 @@ const messageRoutes = require("./routes/messageRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const isProduction = process.env.NODE_ENV === "production";
+
+if (isProduction && !process.env.SESSION_SECRET) {
+  throw new Error("SESSION_SECRET is required in production");
+}
 
 
 // =========================
-// DATABASE CONNECTION
+// DATABASE & EVENT INITIALIZATION
 // =========================
+const { initEventListeners } = require("./services/eventListeners");
+initEventListeners();
 connectDB();
 startUploadQueueProcessor();
 
@@ -31,6 +38,17 @@ startUploadQueueProcessor();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "same-origin");
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+  );
+  next();
+});
+
 
 // =========================
 // SESSION CONFIGURATION
@@ -38,7 +56,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(
   session({
     name: "cloudpdf_session",
-    secret: process.env.SESSION_SECRET || "supersecret",
+    secret: process.env.SESSION_SECRET || "development-only-session-secret",
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
@@ -48,7 +66,8 @@ app.use(
     cookie: {
       maxAge: 1000 * 60 * 60,
       httpOnly: true,
-      secure: false
+      sameSite: "lax",
+      secure: isProduction
     }
   })
 );
@@ -61,17 +80,6 @@ app.use(requireCsrf);
 // =========================
 // STATIC FILES 
 // =========================
-
-// serve uploaded PDFs
-app.use(
-  "/uploads",
-  express.static(path.join(__dirname, "uploads"), {
-    setHeaders: (res) => {
-      res.setHeader("Content-Disposition", "inline");
-      res.setHeader("Content-Type", "application/pdf");
-    }
-  })
-);
 
 // serve frontend files
 app.use(express.static(path.join(__dirname, "public"), { index: false }));
@@ -91,6 +99,9 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "home.html"));
 });
 
+// Global Error Handler
+const { globalErrorHandler } = require("./middleware/errorMiddleware");
+app.use(globalErrorHandler);
 
 // =========================
 // START SERVER

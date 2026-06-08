@@ -27,8 +27,15 @@ function requireCsrf(req, res, next) {
 
   const expected = ensureCsrfToken(req);
   const provided = req.get("x-csrf-token");
+  const expectedBuffer = Buffer.from(String(expected || ""), "utf8");
+  const providedBuffer = Buffer.from(String(provided || ""), "utf8");
 
-  if (!expected || !provided || provided !== expected) {
+  if (
+    !expected ||
+    !provided ||
+    expectedBuffer.length !== providedBuffer.length ||
+    !crypto.timingSafeEqual(expectedBuffer, providedBuffer)
+  ) {
     return res.status(403).json({ message: "Invalid CSRF token" });
   }
 

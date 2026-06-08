@@ -23,6 +23,16 @@ function showStatus(targetId, message, type = "error") {
     el.className = type ? `${baseClass} ${type}` : baseClass;
 }
 
+function escapeHtml(value = "") {
+    return String(value).replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;"
+    }[char]));
+}
+
 function setButtonLoading(button, isLoading, loadingText, defaultText) {
     if (!button) return;
 
@@ -571,7 +581,7 @@ function renderAnalysisList(items = []) {
         return `<p class="analysis-placeholder">No usable insights were returned yet.</p>`;
     }
 
-    return `<ul>${items.map((item) => `<li>${item}</li>`).join("")}</ul>`;
+    return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
 }
 
 function renderAnalysisResult(target, sections = []) {
@@ -579,10 +589,10 @@ function renderAnalysisResult(target, sections = []) {
 
     target.innerHTML = sections.map((section) => {
         if (Array.isArray(section.value)) {
-            return `<section><h3>${section.title}</h3>${renderAnalysisList(section.value)}</section>`;
+            return `<section><h3>${escapeHtml(section.title)}</h3>${renderAnalysisList(section.value)}</section>`;
         }
 
-        return `<section><h3>${section.title}</h3><p>${section.value || "No insights returned."}</p></section>`;
+        return `<section><h3>${escapeHtml(section.title)}</h3><p>${escapeHtml(section.value || "No insights returned.")}</p></section>`;
     }).join("");
 }
 
@@ -708,8 +718,8 @@ async function loadUserInbox() {
                     <span><strong>Admin</strong></span>
                     <span>${new Date(item.createdAt).toLocaleString()}</span>
                 </div>
-                <h3>${item.subject}</h3>
-                <p>${item.message}</p>
+                <h3>${escapeHtml(item.subject)}</h3>
+                <p>${escapeHtml(item.message)}</p>
             `;
             inboxList.appendChild(card);
         });
@@ -904,8 +914,8 @@ async function updateNotificationCenter() {
             } else {
                 list.innerHTML = items.map((item) => `
                     <div class="nav-notification-item${item.readAt ? "" : " unread"}">
-                        <h4>${item.subject}</h4>
-                        <p>${(item.message || "").slice(0, 140)}${item.message?.length > 140 ? "..." : ""}</p>
+                        <h4>${escapeHtml(item.subject)}</h4>
+                        <p>${escapeHtml((item.message || "").slice(0, 140))}${item.message?.length > 140 ? "..." : ""}</p>
                         <span class="nav-notification-meta">${new Date(item.createdAt).toLocaleString()}</span>
                     </div>
                 `).join("");
@@ -1479,7 +1489,7 @@ runComparisonBtn?.addEventListener("click", async () => {
             comparisonResult.innerHTML = `
                 <section>
                     <h3>Overview</h3>
-                    <p>${data.overview || "No overview returned."}</p>
+                    <p>${escapeHtml(data.overview || "No overview returned.")}</p>
                 </section>
                 <section>
                     <h3>Similarities</h3>
@@ -1494,9 +1504,9 @@ runComparisonBtn?.addEventListener("click", async () => {
                     <div class="comparison-table">
                         ${(data.methodologyComparison || []).map((item) => `
                             <div class="comparison-row">
-                                <strong>${item.title || "Untitled thesis"}</strong>
-                                <p><b>Methodology:</b> ${item.methodology || "Not available."}</p>
-                                <p><b>Notable finding:</b> ${item.notableFinding || "Not available."}</p>
+                                <strong>${escapeHtml(item.title || "Untitled thesis")}</strong>
+                                <p><b>Methodology:</b> ${escapeHtml(item.methodology || "Not available.")}</p>
+                                <p><b>Notable finding:</b> ${escapeHtml(item.notableFinding || "Not available.")}</p>
                             </div>
                         `).join("") || `<p class="analysis-placeholder">No methodology comparison returned.</p>`}
                     </div>
@@ -1510,7 +1520,7 @@ runComparisonBtn?.addEventListener("click", async () => {
     } catch (err) {
         console.error(err);
         if (comparisonStatus) comparisonStatus.textContent = err.message || "Comparison failed.";
-        if (comparisonResult) comparisonResult.innerHTML = `<p class="analysis-placeholder">${err.message || "Comparison failed."}</p>`;
+        if (comparisonResult) comparisonResult.innerHTML = `<p class="analysis-placeholder">${escapeHtml(err.message || "Comparison failed.")}</p>`;
     }
 });
 
@@ -1548,7 +1558,7 @@ runGapBtn?.addEventListener("click", async () => {
     } catch (err) {
         console.error(err);
         if (gapStatus) gapStatus.textContent = err.message || "Gap analysis failed.";
-        if (gapResult) gapResult.innerHTML = `<p class="analysis-placeholder">${err.message || "Gap analysis failed."}</p>`;
+        if (gapResult) gapResult.innerHTML = `<p class="analysis-placeholder">${escapeHtml(err.message || "Gap analysis failed.")}</p>`;
     }
 });
 
@@ -1586,7 +1596,7 @@ runDefenseBtn?.addEventListener("click", async () => {
     } catch (err) {
         console.error(err);
         if (defenseStatus) defenseStatus.textContent = err.message || "Defense prep failed.";
-        if (defenseResult) defenseResult.innerHTML = `<p class="analysis-placeholder">${err.message || "Defense prep failed."}</p>`;
+        if (defenseResult) defenseResult.innerHTML = `<p class="analysis-placeholder">${escapeHtml(err.message || "Defense prep failed.")}</p>`;
     }
 });
 
@@ -1794,7 +1804,7 @@ async function loadHistory() {
 
             archivedHistoryList.innerHTML = archivedUploads.map((item) => `
                 <article class="archived-history-card">
-                    <h3>${item.originalname}</h3>
+                    <h3>${escapeHtml(item.originalname)}</h3>
                     <p>Archived ${item.archivedAt ? new Date(item.archivedAt).toLocaleString() : "recently"}.</p>
                     <div class="archived-history-actions">
                         <button type="button" class="restore-history-btn" data-upload-id="${item._id}">Restore Summary</button>
@@ -1849,14 +1859,14 @@ async function loadHistory() {
                 
 
                 card.innerHTML = `
-                    <button class="btn-delete-small" onclick="deleteHistoryItem('${item.filename}', this)" title="Delete Summary">×</button>
+                        <button class="btn-delete-small" title="Delete Summary">×</button>
                     <div class="card-content">
                         <span class="date-label">${date}</span>
-                        <h3>${item.originalname}</h3>
+                        <h3>${escapeHtml(item.originalname)}</h3>
                         <p class="history-snippet"></p>
                     </div>
                     <div class="keywords-pills">
-                        ${(item.keywords || []).slice(0, 3).map(k => `<span class="style-tag">${k}</span>`).join('')}
+                        ${(item.keywords || []).slice(0, 3).map(k => `<span class="style-tag">${escapeHtml(k)}</span>`).join('')}
                     </div>
                 `;
                 const deleteBtn = card.querySelector(".btn-delete-small");

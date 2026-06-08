@@ -5,10 +5,9 @@ const pdfParse = require("pdf-parse");
 const Upload = require("../models/Upload");
 const { summarizeText, validateThesisText } = require("./geminiService");
 const { deleteCacheByPrefix } = require("./cacheService");
+const { MAX_CONCURRENT_UPLOADS, POLL_INTERVAL_MS } = require("../config/constants");
 
 const fsPromises = fs.promises;
-const MAX_CONCURRENT_UPLOADS = Math.max(1, Number(process.env.MAX_CONCURRENT_UPLOADS || 1));
-const POLL_INTERVAL_MS = Math.max(2000, Number(process.env.UPLOAD_QUEUE_POLL_MS || 4000));
 
 let activeWorkers = 0;
 let processorStarted = false;
@@ -26,6 +25,10 @@ async function removeFileIfExists(filePath) {
       throw err;
     }
   }
+}
+
+function isPdfBuffer(fileBuffer) {
+  return fileBuffer.slice(0, 5).toString("utf8") === "%PDF-";
 }
 
 async function failUpload(upload, message) {
@@ -68,6 +71,12 @@ async function processUpload(uploadId) {
 
   try {
     const buffer = await fsPromises.readFile(filePath);
+    if (!isPdfBuffer(buffer)) {
+      await failUpload(upload, "Only valid PDF files are allowed.");
+      await removeFileIfExists(filePath);
+      return;
+    }
+
     const pdfData = await pdfParse(buffer);
     const cleanText = (pdfData.text || "").replace(/\s+/g, " ").trim();
     const limitedText = cleanText.slice(0, 12000);
@@ -122,6 +131,9 @@ async function processUpload(uploadId) {
 
     deleteCacheByPrefix(`uploads:user:${upload.user}:`);
     deleteCacheByPrefix(`account:stats:${upload.user}`);
+
+    const eventEmitter = require("./eventEmitter");
+    eventEmitter.emit("upload:completed", upload);
   } catch (err) {
     console.error("[ERROR] upload queue processing failed:", err);
     await failUpload(upload, err.message || "Internal Server Error during PDF processing");

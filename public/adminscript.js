@@ -56,6 +56,16 @@ function showToast(message, type = "info") {
     }, 3200);
 }
 
+function escapeHtml(value = "") {
+    return String(value).replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;"
+    }[char]));
+}
+
 const nativeFetch = window.fetch.bind(window);
 let csrfTokenCache = null;
 let csrfTokenPromise = null;
@@ -314,7 +324,7 @@ async function loadAnalytics() {
         keywords.innerHTML = `
             <h3>Top Keywords</h3>
             ${data.topKeywords?.length
-                ? data.topKeywords.map((item) => `<div class="analytics-pill">${item.keyword} <strong>(${item.count})</strong></div>`).join("")
+                ? data.topKeywords.map((item) => `<div class="analytics-pill">${escapeHtml(item.keyword)} <strong>(${item.count})</strong></div>`).join("")
                 : "<p>No keyword data yet.</p>"}
         `;
 
@@ -337,11 +347,11 @@ function renderArchivedItems() {
             items: archivedPayload.users || [],
             render: (item) => `
                 <div class="archived-card">
-                    <strong>${item.email || item.username}</strong>
+                    <strong>${escapeHtml(item.email || item.username)}</strong>
                     <p>Archived: ${item.archivedAt ? new Date(item.archivedAt).toLocaleString() : "Unknown"}</p>
                     <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
-                        <button onclick="restoreArchivedUser('${item._id}')">Restore User</button>
-                        <button onclick="permanentlyDeleteArchivedUser('${item._id}')">Delete Permanently</button>
+                        <button data-admin-action="restore-user" data-id="${item._id}">Restore User</button>
+                        <button data-admin-action="delete-user-permanent" data-id="${item._id}">Delete Permanently</button>
                     </div>
                 </div>
             `
@@ -351,12 +361,12 @@ function renderArchivedItems() {
             items: archivedPayload.messages || [],
             render: (item) => `
                 <div class="archived-card">
-                    <strong>${item.subject || "Untitled message"}</strong>
-                    <p>User: ${item.username || item.user?.email || item.user?.username || "Unknown"}</p>
+                    <strong>${escapeHtml(item.subject || "Untitled message")}</strong>
+                    <p>User: ${escapeHtml(item.username || item.user?.email || item.user?.username || "Unknown")}</p>
                     <p>Archived: ${item.archivedAt ? new Date(item.archivedAt).toLocaleString() : "Unknown"}</p>
                     <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
-                        <button onclick="restoreArchivedMessage('${item._id}')">Restore Message</button>
-                        <button onclick="permanentlyDeleteArchivedMessage('${item._id}')">Delete Permanently</button>
+                        <button data-admin-action="restore-message" data-id="${item._id}">Restore Message</button>
+                        <button data-admin-action="delete-message-permanent" data-id="${item._id}">Delete Permanently</button>
                     </div>
                 </div>
             `
@@ -391,16 +401,16 @@ function renderUsers(users) {
     users.forEach((u) => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-            <td onclick="loadUploads('${u._id}')" style="cursor:pointer">
-                ${u.email || u.username}
+            <td data-admin-action="load-uploads" data-id="${u._id}" style="cursor:pointer">
+                ${escapeHtml(u.email || u.username)}
             </td>
             <td>${u.isAdmin ? "Admin" : "User"}</td>
             <td>
-                <button onclick="loadUploads('${u._id}')">View Uploads</button>
-                <button onclick="toggleAdmin('${u._id}')">
+                <button data-admin-action="load-uploads" data-id="${u._id}">View Uploads</button>
+                <button data-admin-action="toggle-admin" data-id="${u._id}">
                     ${u.isAdmin ? "Remove Admin" : "Make Admin"}
                 </button>
-                ${!u.isAdmin ? `<button onclick="deleteUser('${u._id}')">Archive</button>` : ""}
+                ${!u.isAdmin ? `<button data-admin-action="archive-user" data-id="${u._id}">Archive</button>` : ""}
             </td>
         `;
         tbody.appendChild(tr);
@@ -474,11 +484,11 @@ async function loadUploads(userId) {
             const card = document.createElement("div");
             card.className = "admin-upload-card";
             card.innerHTML = `
-                <strong>${u.originalname}</strong>
-                <p>Uploaded by: ${u.user?.email || u.user?.username || "unknown"}</p>
-                <p><strong>Summary:</strong> <pre style="white-space: pre-wrap; background:#f5f5f5; padding:8px;">${u.summary || "No summary available"}</pre></p>
-                <p><strong>Keywords:</strong> ${u.keywords?.join(", ") || "None"}</p>
-                <button onclick="deleteUploadPermanently('${u._id}')">Delete Permanently</button>
+                <strong>${escapeHtml(u.originalname)}</strong>
+                <p>Uploaded by: ${escapeHtml(u.user?.email || u.user?.username || "unknown")}</p>
+                <p><strong>Summary:</strong> <pre style="white-space: pre-wrap; background:#f5f5f5; padding:8px;">${escapeHtml(u.summary || "No summary available")}</pre></p>
+                <p><strong>Keywords:</strong> ${escapeHtml(u.keywords?.join(", ") || "None")}</p>
+                <button data-admin-action="delete-upload-permanent" data-id="${u._id}">Delete Permanently</button>
             `;
             container.appendChild(card);
         });
@@ -577,15 +587,15 @@ function renderMessages(messages) {
         card.className = "admin-message-card";
         card.innerHTML = `
             <div class="admin-message-meta">
-                <span><strong>${item.username || item.user?.email || item.user?.username || "Unknown user"}</strong></span>
+                <span><strong>${escapeHtml(item.username || item.user?.email || item.user?.username || "Unknown user")}</strong></span>
                 <span>${new Date(item.createdAt).toLocaleString()}</span>
             </div>
-            <h3>${item.subject}</h3>
-            <p>${item.message}</p>
+            <h3>${escapeHtml(item.subject)}</h3>
+            <p>${escapeHtml(item.message)}</p>
             <textarea id="replyMessage-${item._id}" placeholder="Reply to this user..." rows="3"></textarea>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                <button onclick="sendReply('${item._id}')">Send Reply</button>
-                <button onclick="deleteMessage('${item._id}')">Archive Message</button>
+                <button data-admin-action="send-reply" data-id="${item._id}">Send Reply</button>
+                <button data-admin-action="archive-message" data-id="${item._id}">Archive Message</button>
             </div>
         `;
         container.appendChild(card);
@@ -805,5 +815,44 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("logActionFilter")?.addEventListener("change", () => {
         logPage = 1;
         loadLogs();
+    });
+
+    document.addEventListener("click", (event) => {
+        const target = event.target.closest("[data-admin-action]");
+        if (!target) return;
+
+        const id = target.dataset.id;
+        switch (target.dataset.adminAction) {
+            case "load-uploads":
+                if (id) loadUploads(id);
+                break;
+            case "toggle-admin":
+                if (id) toggleAdmin(id);
+                break;
+            case "archive-user":
+                if (id) deleteUser(id);
+                break;
+            case "restore-user":
+                if (id) window.restoreArchivedUser(id);
+                break;
+            case "delete-user-permanent":
+                if (id) window.permanentlyDeleteArchivedUser(id);
+                break;
+            case "restore-message":
+                if (id) window.restoreArchivedMessage(id);
+                break;
+            case "delete-message-permanent":
+                if (id) window.permanentlyDeleteArchivedMessage(id);
+                break;
+            case "delete-upload-permanent":
+                if (id) window.deleteUploadPermanently(id);
+                break;
+            case "send-reply":
+                if (id) window.sendReply(id);
+                break;
+            case "archive-message":
+                if (id) window.deleteMessage(id);
+                break;
+        }
     });
 });
